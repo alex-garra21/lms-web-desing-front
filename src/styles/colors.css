@@ -1,0 +1,55 @@
+/**
+ * LMS UMG - Paleta de Colores y Tokens de Diseño
+ * Mapeo de variables CSS para temas Claro y Oscuro
+ * Referencia requerida según AGENTS.md
+ */
+
+:root {
+  /* Fondo general de la aplicación */
+  --background: #f8fafc;       /* slate-50 */
+  --app: var(--background);
+
+  /* Texto principal */
+  --foreground: #0f172a;       /* slate-900 */
+  --main: var(--foreground);
+
+  /* Texto secundario / atenuado */
+  --muted: #64748b;            /* slate-500 */
+
+  /* Identidad y Acentos Institucionales LMS UMG */
+  --brand: #2563eb;            /* brand-600 (Azul eléctrico institucional) */
+  --brand-hover: #1d4ed8;      /* brand-700 */
+
+  /* Superficies elevadas y contenedores (Cards, modales, etc.) */
+  --surface: #ffffff;          /* Blanco */
+
+  /* Barra lateral y navegación */
+  --sidebar-bg: #0f172a;       /* slate-900 */
+  --sidebar-text: #f1f5f9;     /* slate-100 */
+  --sidebar: var(--sidebar-bg);
+}
+
+.dark {
+  /* Fondo general en modo oscuro */
+  --background: #020617;       /* slate-950 */
+  --app: var(--background);
+
+  /* Texto principal en modo oscuro */
+  --foreground: #f8fafc;       /* slate-50 */
+  --main: var(--foreground);
+
+  /* Texto secundario en modo oscuro */
+  --muted: #94a3b8;            /* slate-400 */
+
+  /* Acentos en modo oscuro */
+  --brand: #3b82f6;            /* brand-500 */
+  --brand-hover: #2563eb;      /* brand-600 */
+
+  /* Superficies en modo oscuro */
+  --surface: #0f172a;          /* slate-900 */
+
+  /* Barra lateral en modo oscuro */
+  --sidebar-bg: #0f172a;       /* slate-900 */
+  --sidebar-text: #f1f5f9;     /* slate-100 */
+  --sidebar: var(--sidebar-bg);
+}
