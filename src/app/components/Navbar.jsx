@@ -19,10 +19,10 @@ export const ROLE_NAV_LINKS = {
   ],
   student: [
     { label: 'Mi Panel', href: '/dashboard' },
-    { label: 'Mis Cursos', href: '/my-courses/101' },
+    { label: 'Mis Cursos', href: '/dashboard#my-courses' },
     { label: 'Explorar', href: '/courses' },
-    { label: 'Calificaciones', href: '/grades/student/101' },
-    { label: 'Recursos', href: '/resources' },
+    { label: 'Avance', href: '/dashboard#progress' },
+    { label: 'Recursos', href: '/dashboard#resources' },
   ],
   instructor: [
     { label: 'Panel Docente', href: '/instructor/dashboard' },
@@ -91,38 +91,33 @@ export function Navbar({
   return (
     <header
       className={`
-        sticky top-0 z-50 w-full
-        border-b border-slate-200 dark:border-slate-800
-        bg-surface/90 dark:bg-surface/90 backdrop-blur-md
-        transition-colors duration-200
+        sticky top-0 z-50 w-full border-b border-sky-900/80 bg-[#051426] text-white shadow-[0_8px_30px_rgba(0,0,0,0.15)]
+        backdrop-blur-md transition-colors duration-200
         ${className}
       `.trim().replace(/\s+/g, ' ')}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-
-        {/* LOGO INSTITUCIONAL LMS UMG */}
+      <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <Link
             href={maskRoute(isAuthenticated ? '/dashboard' : '/')}
-            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-xl"
+            className="flex items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white shadow-md shadow-blue-600/30 transition-transform group-hover:scale-105">
-              <svg className="h-6 w-6 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-900/40">
+              <svg className="h-6 w-6 fill-current text-white" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM3.45 9L12 4.34 20.55 9 12 13.66 3.45 9zM5 12.06v5.22c0 2.21 3.13 4 7 4s7-1.79 7-4v-5.22l-7 3.82-7-3.82z" />
               </svg>
             </div>
-            <div className="flex flex-col">
-              <span className="text-base font-extrabold tracking-tight text-foreground flex items-center gap-1.5">
-                LMS <span className="text-brand">UMG</span>
+            <div className="flex flex-col leading-none">
+              <span className="flex items-center gap-1.5 text-3xl font-black tracking-tight text-white">
+                LMS <span className="text-blue-400">UMG</span>
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Plataforma Virtual ({activeRole})
               </span>
             </div>
           </Link>
 
-          {/* NAVEGACIÓN DESKTOP */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden items-center gap-2 md:flex">
             {navLinks.map((link) => {
               const isActive = currentPath === link.href;
               return (
@@ -130,11 +125,10 @@ export function Navbar({
                   key={link.href}
                   href={link.href}
                   className={`
-                    px-3.5 py-2 text-sm font-medium rounded-xl transition-all duration-150
+                    rounded-xl px-5 py-3 text-base font-semibold transition-all duration-200
                     ${isActive
-                      ? 'bg-brand/10 text-brand font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                    }
+                      ? 'bg-[#122742] text-white shadow-inner shadow-blue-900/40'
+                      : 'text-slate-200 hover:bg-[#0d1d33] hover:text-white'}
                   `.trim().replace(/\s+/g, ' ')}
                 >
                   {link.label}
@@ -144,27 +138,25 @@ export function Navbar({
           </nav>
         </div>
 
-        {/* ACCIONES DE LA DERECHA */}
         <div className="flex items-center gap-3">
-          {/* Botón de Modo Oscuro con Iconos Modulares */}
           <button
             type="button"
             onClick={toggleDarkMode}
             aria-label="Cambiar tema"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-surface text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-sm"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-sky-800 bg-[#0c1f34] text-sky-200 transition-colors hover:bg-[#112b45]"
           >
-            {mounted ? (isDark ? <SunIcon className="h-5 w-5 text-amber-400" /> : <MoonIcon className="h-5 w-5 text-slate-600 dark:text-slate-300" />) : <span className="h-5 w-5" />}
+            {mounted ? (isDark ? <SunIcon className="h-5 w-5 text-amber-400" /> : <MoonIcon className="h-5 w-5 text-sky-200" />) : <span className="h-5 w-5" />}
           </button>
 
           {isAuthenticated ? (
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
-                className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-surface text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-sky-800 bg-[#0c1f34] text-sky-200 transition-colors hover:bg-[#112b45]"
               >
                 🔔
                 {notificationsCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                  <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
                     {notificationsCount}
                   </span>
                 )}
@@ -174,30 +166,28 @@ export function Navbar({
                 <button
                   type="button"
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-slate-800 p-1.5 pr-3 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+                  className="flex items-center gap-2.5 rounded-xl border border-sky-800 bg-[#0c1f34] p-1.5 pr-3 transition-colors hover:bg-[#112b45]"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white font-bold text-xs">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 font-bold text-xs text-white">
                     {(user?.name || activeRole).charAt(0).toUpperCase()}
                   </div>
                   <div className="hidden lg:flex flex-col text-left">
-                    <span className="text-xs font-bold text-foreground truncate max-w-[100px]">
+                    <span className="max-w-[100px] truncate text-xs font-bold text-white">
                       {user?.name || `Usuario ${activeRole}`}
                     </span>
-                    <span className="text-[10px] text-slate-500 capitalize">
-                      {activeRole}
-                    </span>
+                    <span className="text-[10px] capitalize text-slate-300">{activeRole}</span>
                   </div>
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl border border-slate-200 dark:border-slate-800 bg-surface p-2 shadow-2xl z-50">
+                  <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl border border-sky-800 bg-[#0a1c2f] p-2 shadow-2xl z-50">
                     <button
                       type="button"
                       onClick={() => {
                         setUserDropdownOpen(false);
                         if (onLogout) onLogout();
                       }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-[#112b45] transition-colors"
                     >
                       Cerrar Sesión ({activeRole})
                     </button>
@@ -206,22 +196,21 @@ export function Navbar({
               </div>
             </div>
           ) : (
-            <div className="hidden sm:flex items-center gap-2">
-              <Button href={maskRoute("/login")} variant="ghost" size="sm">
+            <div className="hidden items-center gap-3 sm:flex">
+              <Button href={maskRoute('/login')} variant="secondary" size="md" className="!border-sky-800 !bg-[#0c1f34] !text-white hover:!bg-[#112b45]">
                 Iniciar Sesión
               </Button>
-              <Button href={maskRoute("/register")} variant="brand" size="sm">
+              <Button href={maskRoute('/register')} variant="brand" size="md" className="!bg-blue-600 !text-white hover:!bg-blue-500">
                 Comenzar
               </Button>
             </div>
           )}
 
-          {/* Botón hamburguesa móvil */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Abrir menú"
-            className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-surface text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-sky-800 bg-[#0c1f34] text-sky-200 transition-colors hover:bg-[#112b45] md:hidden"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               {mobileMenuOpen ? (
@@ -234,16 +223,15 @@ export function Navbar({
         </div>
       </div>
 
-      {/* Menú móvil desplegable */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-surface px-4 py-3 shadow-lg space-y-2">
-          <nav className="flex flex-col gap-1 pb-2 border-b border-slate-100 dark:border-slate-800">
+        <div className="border-t border-sky-900/80 bg-[#051426] px-4 py-3 shadow-lg md:hidden">
+          <nav className="flex flex-col gap-1 pb-2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-medium rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-xl px-3 py-2 text-sm font-medium text-slate-200 hover:bg-[#0d1d33]"
               >
                 {link.label}
               </Link>
@@ -252,22 +240,23 @@ export function Navbar({
           {!isAuthenticated && (
             <div className="pt-2 flex flex-col gap-2">
               <Button
-                href={maskRoute("/login")}
-                variant="ghost"
+                href={maskRoute('/login')}
+                variant="secondary"
                 size="md"
                 fullWidth
+                className="!border-sky-800 !bg-[#0c1f34] !text-white hover:!bg-[#112b45]"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Iniciar Sesión
               </Button>
               <Button
-                href={maskRoute("/register")}
+                href={maskRoute('/register')}
                 variant="brand"
                 size="md"
                 fullWidth
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Comenzar Registro
+                Comenzar
               </Button>
             </div>
           )}

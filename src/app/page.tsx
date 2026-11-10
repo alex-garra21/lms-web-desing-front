@@ -1,28 +1,17 @@
-"use client";
+﻿"use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import Navbar from '@/app/components/Navbar';
 import Button from '@/app/components/Button';
-import Input from '@/app/components/Input';
-import Select from '@/app/components/Select';
 import CourseCard from '@/app/components/CourseCard';
-import VideoPlayer from '@/app/components/VideoPlayer';
-import {
-  encodeId,
-  decodeId,
-  maskRoute,
-  unmaskRoute,
-  isValidMaskedId,
-} from '@/app/utils/routeHasher';
-import { Login, Register } from '@/app/pages/public';
+import { maskRoute } from '@/app/utils/routeHasher';
 
-// Cursos de ejemplo para demostración de catálogo y modo inscrito
 const SAMPLE_COURSES = [
   {
     id: 101,
     title: 'Desarrollo de Software Seguro y Arquitectura Web',
     description:
-      'Aprende a diseñar aplicaciones escalables implementando protección contra IDOR, OWASP Top 10 y autenticación con Supabase.',
+      'Aprende a diseñar aplicaciones escalables con seguridad, autenticación y buenas prácticas de software moderno.',
     thumbnail:
       'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
     category: 'Ingeniería de Sistemas',
@@ -31,7 +20,6 @@ const SAMPLE_COURSES = [
     lessonsCount: 36,
     rating: 4.9,
     reviewsCount: 128,
-    price: 'Q. 450.00',
     instructor: {
       name: 'Ing. Carlos Mendoza',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
@@ -42,7 +30,7 @@ const SAMPLE_COURSES = [
     id: 202,
     title: 'Estructuras de Datos y Algoritmos Avanzados',
     description:
-      'Domina árboles binarios, grafos y análisis asintótico con aplicaciones prácticas en JavaScript y TypeScript.',
+      'Domina árboles, grafos y análisis algorítmico con enfoque práctico en JavaScript y TypeScript.',
     thumbnail:
       'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=800&q=80',
     category: 'Ciencias de la Computación',
@@ -51,7 +39,6 @@ const SAMPLE_COURSES = [
     lessonsCount: 24,
     rating: 4.8,
     reviewsCount: 94,
-    price: 'Gratis',
     instructor: {
       name: 'Dra. Sofía Morales',
       avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80',
@@ -62,7 +49,7 @@ const SAMPLE_COURSES = [
     id: 303,
     title: 'Bases de Datos Relacionales y PostgreSQL en la Nube',
     description:
-      'Modelado entidad-relación, Row Level Security (RLS) y optimización de consultas complejas en Supabase.',
+      'Aprende modelado de datos, RLS y optimización de consultas para aplicaciones reales en entornos modernos.',
     thumbnail:
       'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=800&q=80',
     category: 'Bases de Datos',
@@ -71,7 +58,6 @@ const SAMPLE_COURSES = [
     lessonsCount: 20,
     rating: 4.7,
     reviewsCount: 76,
-    price: 'Q. 300.00',
     instructor: {
       name: 'Ing. Alejandro Ramos',
       avatar: null,
@@ -80,385 +66,174 @@ const SAMPLE_COURSES = [
   },
 ];
 
+const features = [
+  {
+    title: 'Clases en vivo y grabadas',
+    description: 'Accede a lecciones semanales, sesiones guiadas y material de apoyo desde cualquier dispositivo.',
+    icon: '🎓',
+  },
+  {
+    title: 'Aprendizaje flexible',
+    description: 'Estudia a tu ritmo con planes por módulo, evaluaciones y seguimiento académico automatizado.',
+    icon: '⏱️',
+  },
+  {
+    title: 'Soporte académico',
+    description: 'Recibe atención docente, retroalimentación y coordinación con campus, secretaria y administración.',
+    icon: '🤝',
+  },
+];
+
+const stats = [
+  { label: 'Estudiantes activos', value: '12k+' },
+  { label: 'Cursos disponibles', value: '180+' },
+  { label: 'Satisfacción', value: '96%' },
+  { label: 'Docentes expertos', value: '70+' },
+];
+
 export default function Home() {
-  // Estado para alternar simulación de usuario logueado en Navbar
-  const [simulateAuth, setSimulateAuth] = useState(false);
-  const [activeView, setActiveView] = useState<'showcase' | 'login' | 'register'>('showcase');
-
-  // Estados para pruebas interactivas de Input / Select / Button
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSemester, setSelectedSemester] = useState('2026-1');
-  const [btnLoading, setBtnLoading] = useState(false);
-
-  // Estados interactivos para el verificador de routeHasher
-  const [testInputId, setTestInputId] = useState('1054');
-  const [maskedOutput, setMaskedOutput] = useState(() => encodeId('1054'));
-  const [tamperValue, setTamperValue] = useState('');
-  const [unmaskTestPath, setUnmaskTestPath] = useState(
-    '/courses/1024/lessons/5080'
-  );
-
-  const currentUser = simulateAuth
-    ? {
-      name: 'Alex Garra',
-      email: 'agarra@miumg.edu.gt',
-      avatar:
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      role: 'Estudiante',
-    }
-    : null;
-
-  const handleHashEncode = () => {
-    const encoded = encodeId(testInputId);
-    setMaskedOutput(encoded);
-    setTamperValue(encoded);
-  };
-
-  // Renderizar vistas independientes si se seleccionan
-  if (activeView === 'login') {
-    return (
-      <div className="relative">
-        <div className="fixed top-4 left-4 z-50">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setActiveView('showcase')}
-            className="shadow-md"
-          >
-            ← Volver al Showcase
-          </Button>
-        </div>
-        <Login
-          onLoginSuccess={() => {
-            setSimulateAuth(true);
-            setActiveView('showcase');
-          }}
-        />
-      </div>
-    );
-  }
-
-  if (activeView === 'register') {
-    return (
-      <div className="relative">
-        <div className="fixed top-4 left-4 z-50">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setActiveView('showcase')}
-            className="shadow-md"
-          >
-            ← Volver al Showcase
-          </Button>
-        </div>
-        <Register
-          onRegisterSuccess={() => {
-            setActiveView('login');
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
-      {/* 1. NAVBAR (RESPONSIVE, PUBLIC/AUTH, DARK MODE TOGGLE) */}
-      <Navbar
-        user={currentUser}
-        onLogout={() => setSimulateAuth(false)}
-        notificationsCount={3}
-      />
+      <Navbar currentPath="/" />
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-        {/* PANEL DE CONTROL DE PRUEBAS / ESTADO */}
-        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-surface p-4 sm:p-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+        <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 sm:p-8 lg:p-10">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
-                <span className="h-2 w-2 rounded-full bg-brand animate-pulse" />
-                LMS UMG Showcase
+              <span className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-brand">
+                <span className="h-2 w-2 rounded-full bg-brand" />
+                Campus virtual UMG
               </span>
-              <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                Plataforma Virtual Universitaria
+
+              <h1 className="mt-5 max-w-xl text-4xl font-black leading-tight tracking-tight text-foreground sm:text-5xl">
+                El futuro de tu educación empieza aquí.
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Componentes base implementados con Tailwind CSS, soporte estricto de Dark Mode y ofuscación de rutas anti-IDOR.
-              </p>
-            </div>
 
-            {/* Controles interactivos de vistas y sesión */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setActiveView('login')}
-                >
-                  Vista Login
+              <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">
+                Accede a una experiencia académica moderna con cursos, tutorías, evaluaciones y acompañamiento docente pensado para formar líderes del mañana.
+              </p>
+
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <Button href={maskRoute('/courses')} size="lg" variant="brand">
+                  Explorar cursos
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setActiveView('register')}
-                >
-                  Vista Registro
+                <Button href={maskRoute('/register')} size="lg" variant="secondary">
+                  Inscribirme ahora
                 </Button>
               </div>
 
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
-                <Button
-                  size="sm"
-                  variant={simulateAuth ? 'brand' : 'ghost'}
-                  onClick={() => setSimulateAuth(!simulateAuth)}
-                >
-                  {simulateAuth ? '👨‍🎓 Estudiante' : '👤 Invitado'}
-                </Button>
+              <div className="mt-8 flex flex-wrap gap-6 text-sm text-slate-500 dark:text-slate-400">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Clases online y presenciales
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  Certificados reconocidos
+                </span>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute -right-6 -top-5 h-32 w-32 rounded-full bg-brand/20 blur-3xl" />
+              <div className="absolute -bottom-5 -left-5 h-32 w-32 rounded-full bg-sky-400/20 blur-3xl" />
+
+              <div className="relative rounded-[28px] border border-slate-200 bg-surface p-4 shadow-xl dark:border-slate-700">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+                  <img
+                    src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1000&q=80"
+                    alt="Estudiantes en aula"
+                    className="h-[420px] w-full object-cover"
+                  />
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-2xl font-black text-brand">+18k</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Horas de aprendizaje</div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-2xl font-black text-brand">4.9/5</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Experiencia estudiantil</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 2. REPRODUCTOR DE VIDEO RESPONSIVE 16:9 (YOUTUBE & HTML5) */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground">
-                Reproductor de Lecciones (VideoPlayer)
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Relación de aspecto 16:9, soporte seguro para YouTube sin cookies de rastreo y controles académicos.
-              </p>
+        <section className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-slate-200 bg-surface p-5 text-center shadow-sm dark:border-slate-800"
+            >
+              <div className="text-3xl font-black text-foreground">{stat.value}</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">{stat.label}</div>
             </div>
-          </div>
-
-          <VideoPlayer
-            url="https://youtu.be/JHW4gVn59-k"
-            moduleName="Módulo 3: Seguridad en APIs y Prevención de IDOR adfklasdflk"
-            title="Clase Magistral: Arquitectura Web Segura y Control de Acceso"
-            onComplete={(completed: boolean) =>
-              alert(`Estado de la lección actualizado: ${completed ? 'Completada' : 'Pendiente'}`)
-            }
-            onPrev={() => alert('Navegando a lección anterior')}
-            onNext={() => alert('Navegando a lección siguiente')}
-          />
+          ))}
         </section>
 
-        {/* 3. CATÁLOGO DE CURSOS (COURSECARD) */}
-        <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground">
-                Cursos Disponibles (CourseCard)
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Visualización de miniaturas, metadatos, barras de avance académico y URLs ofuscadas.
-              </p>
-            </div>
-            <span className="text-xs font-medium text-slate-500">
-              Mostrando {SAMPLE_COURSES.length} cursos
-            </span>
+        <section className="mt-16">
+          <div className="mb-6 text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand">¿Por qué elegir UMG?</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-foreground">Educación con enfoque real y resultados medibles</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SAMPLE_COURSES.map((course, index) => (
+          <div className="grid gap-6 lg:grid-cols-3">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="rounded-3xl border border-slate-200 bg-surface p-6 shadow-sm transition-transform duration-200 hover:-translate-y-1 dark:border-slate-800"
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-3xl">{feature.icon}</div>
+                <h3 className="mt-5 text-xl font-bold text-foreground">{feature.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-16">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand">Cursos destacados</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground">Aprende lo que más demanda tu futuro</h2>
+            </div>
+            <Button href={maskRoute('/courses')} variant="ghost">
+              Ver catálogo completo
+            </Button>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {SAMPLE_COURSES.map((course) => (
               <CourseCard
                 key={course.id}
                 course={course}
-                isEnrolled={index === 0}
-                progress={index === 0 ? 68 : undefined}
-                actionText={index === 0 ? 'Continuar Clase' : 'Inscribirme'}
+                actionText="Ver curso"
+                isEnrolled={false}
               />
             ))}
           </div>
         </section>
 
-        {/* 4. FORMULARIOS Y CONTROLES BASE (INPUT, SELECT, BUTTON) */}
-        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-surface p-6 shadow-sm space-y-6">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-foreground">
-              Controles de Formulario (Input, Select, Button)
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Estilizados con variables semánticas de globals.css y soporte nativo de Dark Mode.
-            </p>
-          </div>
+        <section className="mt-16 rounded-[30px] border border-slate-200 bg-slate-900 px-6 py-8 text-white shadow-xl dark:border-slate-700 sm:px-8 lg:px-10">
+          <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-300">Comienza hoy</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight">Tu próxima etapa académica te está esperando.</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                Únete a una plataforma universitaria moderna, segura y pensada para acompañarte desde la primera clase hasta la certificación final.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Input
-              label="Búsqueda de Asignaturas"
-              placeholder="Ej: Redes, Inteligencia Artificial..."
-              value={searchQuery}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-              helperText="Busca por título o nombre de docente"
-              leftIcon={
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              }
-            />
-
-            <Select
-              label="Ciclo Académico"
-              value={selectedSemester}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSemester(e.target.value)}
-              helperText="Filtra por período semestral vigente"
-              options={[
-                { value: '2026-1', label: 'Primer Semestre 2026' },
-                { value: '2026-2', label: 'Segundo Semestre 2026' },
-                { value: '2025-2', label: 'Segundo Semestre 2025' },
-              ]}
-              leftIcon={
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              }
-            />
-
-            <Input
-              label="Validación de Carné (Error)"
-              defaultValue="0900-XX-INVALID"
-              required
-              error="El formato del carné no corresponde al padrón activo de UMG"
-              leftIcon={
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                </svg>
-              }
-            />
-          </div>
-
-          {/* Variantes de Botones */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
-              Variantes del Componente Button
-            </h3>
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="brand">Brand Principal</Button>
-              <Button variant="secondary">Secundario</Button>
-              <Button variant="outline">Borde Outline</Button>
-              <Button variant="ghost">Fantasma / Ghost</Button>
-              <Button variant="success">Éxito</Button>
-              <Button variant="danger">Peligro</Button>
-              <Button
-                variant="brand"
-                isLoading={btnLoading}
-                onClick={() => {
-                  setBtnLoading(true);
-                  setTimeout(() => setBtnLoading(false), 2000);
-                }}
-              >
-                {btnLoading ? 'Procesando...' : 'Probar Loading'}
+              <Button href={maskRoute('/register')} size="lg" variant="brand">
+                Crear cuenta
               </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* 5. CONSOLA DE SEGURIDAD Y ROUTE HASHER (ANTI-IDOR) */}
-        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-surface p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground">
-                Consola de Seguridad: Route Hasher & Anti-IDOR
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Ofuscación criptográfica bidireccional con checksum FNV-1a para proteger recursos en URLs.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-            {/* Prueba de Enmascaramiento de ID */}
-            <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                1. Enmascarar ID
-              </span>
-              <div className="flex gap-2">
-                <Input
-                  value={testInputId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTestInputId(e.target.value)}
-                  placeholder="ID plano (ej: 1054, curso_abc)"
-                />
-                <Button variant="brand" onClick={handleHashEncode}>
-                  Ofuscar
-                </Button>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-slate-500">Hash Generado:</span>
-                <p className="font-mono text-xs bg-surface p-2 rounded-lg border border-slate-200 dark:border-slate-700 break-all text-brand font-bold select-all">
-                  {maskedOutput}
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-slate-500">Resultado de Desofuscación:</span>
-                <p className="font-mono text-xs bg-surface p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-emerald-600 dark:text-emerald-400 font-bold">
-                  {decodeId(maskedOutput) ?? '❌ Inválido'}
-                </p>
-              </div>
-            </div>
-
-            {/* Prueba de Manipulación / Detección Anti-Tamper */}
-            <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                2. Verificación Anti-Tampering (IDOR Attack Simulator)
-              </span>
-              <p className="text-xs text-slate-500">
-                Altera cualquier carácter del hash generado abajo para verificar cómo el checksum bloquea el acceso:
-              </p>
-              <Input
-                value={tamperValue || maskedOutput}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTamperValue(e.target.value)}
-                placeholder="Modifica caracteres aquí..."
-              />
-
-              <div className="flex items-center justify-between p-3 rounded-xl border bg-surface">
-                <span className="text-xs font-semibold">Integridad de Acceso:</span>
-                {isValidMaskedId(tamperValue || maskedOutput) ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Válido (ID: {decodeId(tamperValue || maskedOutput)})
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                    <span className="h-2 w-2 rounded-full bg-rose-500" />
-                    Ataque Detectado: Acceso Rechazado (null)
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Prueba de Rutas Completas */}
-          <div className="pt-2 space-y-3">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-              3. Enmascaramiento y Desenmascaramiento de Rutas de la Aplicación
-            </span>
-            <Input
-              label="Probar Ruta con IDs de Recursos"
-              value={unmaskTestPath}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUnmaskTestPath(e.target.value)}
-              placeholder="/courses/1024/lessons/5080"
-              helperText="Escribe cualquier ruta con identificadores numéricos o UUIDs"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
-                <span className="text-[11px] font-semibold text-slate-500">Ruta Ofuscada (URL Segura):</span>
-                <p className="font-mono text-xs text-brand mt-1 truncate">
-                  {maskRoute(unmaskTestPath)}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
-                <span className="text-[11px] font-semibold text-slate-500">Ruta Recuperada en Servidor:</span>
-                <p className="font-mono text-xs text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-                  {unmaskRoute(maskRoute(unmaskTestPath))}
-                </p>
-              </div>
+              <Button href={maskRoute('/login')} size="lg" variant="secondary" className="border-slate-600 bg-slate-800 text-white hover:bg-slate-700">
+                Ya tengo cuenta
+              </Button>
             </div>
           </div>
         </section>

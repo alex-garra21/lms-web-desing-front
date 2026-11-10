@@ -231,14 +231,12 @@ export function maskRoute(path, customSalt = DEFAULT_SALT) {
 
   const [pathname, search] = path.split('?');
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const sensitiveAuthRoutes = new Set(['login', 'register', 'signin', 'signup', 'forgot-password', 'reset-password']);
   const segments = pathname.split('/');
 
   const maskedSegments = segments.map((seg) => {
     if (!seg) return seg;
     if (seg.startsWith(PREFIX)) return seg;
-    const lower = seg.toLowerCase();
-    if (/^\d+$/.test(seg) || uuidRegex.test(seg) || sensitiveAuthRoutes.has(lower)) {
+    if (/^\d+$/.test(seg) || uuidRegex.test(seg)) {
       return encodeId(seg, customSalt);
     }
     return seg;

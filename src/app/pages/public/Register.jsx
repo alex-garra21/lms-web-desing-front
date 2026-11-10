@@ -307,11 +307,7 @@ export function Register({ onRegisterSuccess }) {
                   required
                 />
                 <span>
-                  Declaro que la información proporcionada es verídica y acepto el{' '}
-                  <Link href={termsHref} className="text-brand font-semibold hover:underline">
-                    Reglamento Estudiantil
-                  </Link>{' '}
-                  y las políticas de uso de la plataforma LMS UMG.
+                  Declaro que la información proporcionada es verídica y acepto el Reglamento Estudiantil y las políticas de uso de la plataforma LMS UMG.
                 </span>
               </label>
             </div>
