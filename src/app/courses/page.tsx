@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import Navbar from '@/app/components/Navbar';
-import Button from '@/app/components/Button';
-import CourseCard from '@/app/components/CourseCard';
+import Navbar from '@/components/Navbar';
+import Button from '@/components/Button';
+import CourseCard from '@/components/CourseCard';
 import { maskRoute } from '@/app/utils/routeHasher';
+import CustomSelect from '@/components/CustomSelect';
 
 const catalogCourses = [
   {
@@ -293,16 +294,16 @@ export default function CoursesPage() {
                   <div className="flex items-center gap-3 rounded-[20px] border border-sky-800 bg-[#08182e] px-4 py-3 text-sm shadow-inner shadow-sky-950/40">
                     <span className="font-semibold text-slate-200">Ordenar por</span>
                     <div className="relative">
-                      <select
-                        value={sortBy}
-                        onChange={(event) => setSortBy(event.target.value)}
-                        className="appearance-none bg-transparent pr-7 text-base font-bold text-white outline-none"
-                      >
-                        <option value="popular" className="text-slate-900">Mejor calificados</option>
-                        <option value="reviewed" className="text-slate-900">Más reseñas</option>
-                        <option value="newest" className="text-slate-900">Más lecciones</option>
-                        <option value="title" className="text-slate-900">Nombre: A-Z</option>
-                      </select>
+                      <CustomSelect 
+                            options={[
+                              { value: 'popular', label: 'Mejor calificados' },
+                              { value: 'reviewed', label: 'Más reseñas' },
+                              { value: 'newest', label: 'Más lecciones' },
+                              { value: 'title', label: 'Nombre: A-Z' },
+                            ]}
+                            value={sortBy}
+                            onChange={(newValue: React.SetStateAction<string>) => setSortBy(newValue)}
+                          />
                       <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-slate-200">▾</span>
                     </div>
                   </div>

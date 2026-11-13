@@ -1,5 +1,5 @@
-import Navbar from '@/app/components/Navbar';
-import Button from '@/app/components/Button';
+import Navbar from '@/components/Navbar';
+import Button from '@/components/Button';
 import { maskRoute } from '@/app/utils/routeHasher';
 
 const learningSteps = [

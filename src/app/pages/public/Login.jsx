@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Button from '@/app/components/Button';
-import Input from '@/app/components/Input';
+import Button from '@/components/Button';
+import Input from '@/components/Input';
 import { maskRoute } from '@/app/utils/routeHasher';
 import { useDarkMode } from '@/app/hooks/useDarkMode';
 import { SunIcon, MoonIcon } from '@/app/utils/icons';
