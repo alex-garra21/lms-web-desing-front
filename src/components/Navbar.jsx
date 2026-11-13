@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Button from './Button';
-import { useDarkMode } from '@/app/hooks/useDarkMode';
-import { maskRoute } from '@/app/utils/routeHasher';
-import { SunIcon, MoonIcon } from '@/app/utils/icons';
+import { useDarkMode } from '@/hooks/useDarkMode';
+import { maskRoute } from '@/utils/routeHasher';
+import { SunIcon, MoonIcon } from '@/utils/icons';
 
 /**
  * Enlaces y módulos para los 5 roles del LMS UMG (con IDs de ejemplo para probar maskRoute)

@@ -1,7 +1,7 @@
 import Navbar from '@/components/Navbar';
 import Button from '@/components/Button';
 import CourseCard from '@/components/CourseCard';
-import { maskRoute } from '@/app/utils/routeHasher';
+import { maskRoute } from '@/utils/routeHasher';
 
 const enrolledCourses = [
   {

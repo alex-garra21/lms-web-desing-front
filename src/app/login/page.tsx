@@ -4,23 +4,22 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
-import { maskRoute } from '@/app/utils/routeHasher';
-import { useDarkMode } from '@/app/hooks/useDarkMode';
-import { SunIcon, MoonIcon } from '@/app/utils/icons';
+import { maskRoute } from '@/utils/routeHasher';
+import { useDarkMode } from '@/hooks/useDarkMode';
+import { SunIcon, MoonIcon } from '@/utils/icons';
+import { supabase } from '@/utils/supabaseClient';
 
 /**
- * Vista de Inicio de Sesión (Login) para el LMS UMG.
- * Cumple estrictamente con AGENTS.md:
+ * Vista de Inicio de Sesión (Login) para el LMS UMG (Campus Cobán).
+ * 
  * - Estilizado con Tailwind CSS y tokens de globals.css (--background, --foreground, --surface, --brand)
+ * - Autenticación real mediante Supabase Auth (signInWithPassword)
+ * - Consulta de rol en tabla 'users' y redirección inteligente por rol
  * - Componentes Input y Button desacoplados y reutilizables
  * - Soporte nativo para modo claro y oscuro
  * - Rutas y redirecciones protegidas con maskRoute() anti-IDOR
- * 
- * @param {Object} props
- * @param {Function} [props.onLoginSuccess] - Callback opcional al autenticar exitosamente
- * @param {string} [props.redirectPath] - Ruta de redirección post-login
  */
-export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -35,12 +34,13 @@ export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
   const registerHref = maskRoute('/register');
   const forgotPasswordHref = maskRoute('/forgot-password');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password.trim()) {
       setErrorMessage('Por favor ingresa tu correo institucional y contraseña.');
       return;
     }
@@ -48,43 +48,63 @@ export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
     setIsLoading(true);
 
     try {
-      // Simulación de autenticación (integrable con Supabase Auth)
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // 1. Inicio de sesión con Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
 
-      const mockUser = {
-        name: email.split('@')[0].replace('.', ' '),
-        email,
-        role: email.includes('admin')
-          ? 'admin'
-          : email.includes('catedra') || email.includes('docente')
-          ? 'instructor'
-          : email.includes('sec')
-          ? 'secretary'
-          : 'student',
-      };
+      if (authError || !authData?.user) {
+        let friendlyMessage = authError?.message || 'Error al autenticar las credenciales.';
+        const lower = friendlyMessage.toLowerCase();
+        if (lower.includes('invalid login credentials')) {
+          friendlyMessage = 'Credenciales inválidas. Por favor verifica tu correo y contraseña.';
+        } else if (lower.includes('email not confirmed')) {
+          friendlyMessage = 'Tu correo electrónico institucional aún no ha sido confirmado.';
+        } else if (lower.includes('too many requests')) {
+          friendlyMessage = 'Demasiados intentos fallidos. Por favor espera unos momentos antes de reintentar.';
+        }
+        setErrorMessage(friendlyMessage);
+        return;
+      }
 
-      setSuccessMessage('¡Autenticación exitosa! Redirigiendo a tu panel...');
+      // 2. Validación de rol en la tabla 'users' filtrando por id de usuario
+      const userId = authData.user.id;
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('rol')
+        .eq('id', userId)
+        .maybeSingle();
 
-      if (onLoginSuccess) {
-        onLoginSuccess(mockUser);
-      } else if (typeof window !== 'undefined') {
-        const targetUrl = maskRoute(redirectPath);
+      if (profileError) {
+        console.warn('No se pudo consultar el rol en users:', profileError.message);
+      }
+
+      const role = userProfile?.rol || authData.user.user_metadata?.rol || 'student';
+
+      setSuccessMessage('¡Autenticación exitosa! Redirigiendo a tu espacio académico...');
+
+      // 3. Redireccionamiento inteligente según el rol
+      let targetPath = '/courses';
+      if (role === 'system' || role === 'administration' || role === 'admin' || role === 'instructor') {
+        targetPath = '/dashboard';
+      } else {
+        targetPath = '/courses';
+      }
+
+      const targetUrl = maskRoute(targetPath);
+
+      if (typeof window !== 'undefined') {
         setTimeout(() => {
           window.location.href = targetUrl;
         }, 600);
       }
-    } catch {
-      setErrorMessage('Error al conectar con el servidor de autenticación de Supabase.');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Error inesperado al conectar con el servidor de autenticación.';
+      setErrorMessage(errorMsg);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Selector de credenciales de demostración rápida para pruebas locales
-  const handleQuickRoleLogin = (roleName, demoEmail) => {
-    setEmail(demoEmail);
-    setPassword('DemoPass2026!');
-    setErrorMessage('');
   };
 
   return (
@@ -171,7 +191,7 @@ export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
               id="login-email"
               name="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               placeholder="tu.usuario@miumg.edu.gt"
               required
               helperText="Dominio oficial UMG (@miumg.edu.gt)"
@@ -188,7 +208,7 @@ export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
               id="login-password"
               name="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
               leftIcon={
@@ -228,43 +248,6 @@ export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
               Iniciar Sesión
             </Button>
           </form>
-
-          {/* Accesos rápidos de prueba de roles */}
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
-            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2.5 text-center">
-              Acceso Rápido de Prueba (Demo Roles)
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('Estudiante', 'estudiante@miumg.edu.gt')}
-                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300"
-              >
-                👨‍🎓 Estudiante
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('Docente', 'docente@miumg.edu.gt')}
-                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300"
-              >
-                👨‍🏫 Catedrático
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('Secretaría', 'secretaria@miumg.edu.gt')}
-                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300"
-              >
-                🏛️ Secretaría
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('Admin', 'admin@miumg.edu.gt')}
-                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300"
-              >
-                🛡️ Administrador
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* PIE DE PÁGINA DE ENLACES */}
@@ -292,5 +275,3 @@ export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
     </div>
   );
 }
-
-export default Login;

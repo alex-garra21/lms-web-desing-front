@@ -41,7 +41,7 @@ export default function CustomSelect({ options, value, onChange, label = "Ordena
 
       {/* Menú desplegable flotante con esquinas redondeadas y sombra elegante */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none z-50 overflow-hidden py-1.5">
+        <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none z-[999] overflow-hidden py-1.5">
           {options.map((option) => (
             <button
               key={option.value}
