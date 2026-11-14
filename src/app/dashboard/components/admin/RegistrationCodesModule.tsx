@@ -46,6 +46,16 @@ export function RegistrationCodesModule({
     return map;
   }, [courses]);
 
+  const hasActiveCourseCode = useMemo(() => {
+    if (tipo !== 'course_enrollment' || !cursoId) return false;
+    return codes.some(
+      (item) =>
+        item.tipo === 'course_enrollment' &&
+        item.curso_id === cursoId &&
+        !item.is_deleted
+    );
+  }, [codes, tipo, cursoId]);
+
   const handleGenerateCode = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -53,6 +63,15 @@ export function RegistrationCodesModule({
       onFeedback({
         type: 'error',
         message: 'Selecciona un curso destino para generar un código de inscripción.',
+      });
+      return;
+    }
+
+    if (hasActiveCourseCode) {
+      onFeedback({
+        type: 'warning',
+        message:
+          'Este curso ya tiene un código activo. Revise el panel derecho o revoque el código existente si necesita generar uno nuevo.',
       });
       return;
     }
@@ -257,9 +276,41 @@ export function RegistrationCodesModule({
             </Button>
           </div>
 
-          <Button type="submit" variant="brand" fullWidth isLoading={isSaving}>
+          <Button
+            type="submit"
+            variant={hasActiveCourseCode ? 'secondary' : 'brand'}
+            fullWidth
+            isLoading={isSaving}
+            disabled={isSaving || hasActiveCourseCode}
+            className={
+              hasActiveCourseCode
+                ? '!bg-slate-200 !text-slate-500 !border-slate-300 dark:!bg-slate-800 dark:!text-slate-500 dark:!border-slate-700 !cursor-not-allowed !pointer-events-auto'
+                : ''
+            }
+          >
             Emitir Código
           </Button>
+
+          {hasActiveCourseCode && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+              <svg
+                className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <span>
+                Este curso ya tiene un código activo. Revise el panel derecho o revoque el código existente si necesita generar uno nuevo.
+              </span>
+            </div>
+          )}
         </form>
       </section>
 
