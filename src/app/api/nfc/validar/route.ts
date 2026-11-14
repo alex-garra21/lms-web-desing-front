@@ -14,26 +14,35 @@ interface UserNfcRow {
 }
 
 /**
- * Busca al estudiante en public.users por su token NFC soportando tanto
- * la columna `nfc_token_h` como `nfc_token_hash` usando Service Role Key.
+ * Normaliza un token NFC eliminando espacios extremos y convirtiendo a mayúsculas.
  */
-async function findStudentByNfcToken(cleanToken: string): Promise<{
+function normalizeNfcToken(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase();
+}
+
+/**
+ * Extrae una representación canónica sin separadores (espacios, ':', '-')
+ * para tolerar variaciones de formato entre el lector ESP32 y la base de datos.
+ */
+function canonicalizeNfcToken(value: unknown): string {
+  return normalizeNfcToken(value).replace(/[\s:-]+/g, '');
+}
+
+/**
+ * Busca al estudiante en public.users por su token NFC soportando tanto
+ * `nfc_token_hash` como `nfc_token_h`, siendo completamente tolerante a
+ * mayúsculas/minúsculas, espacios adicionales y separadores.
+ */
+async function findStudentByNfcToken(rawToken: string): Promise<{
   student: UserNfcRow | null;
   errorMessage: string | null;
 }> {
-  // 1. Intentar búsqueda por campo `nfc_token_h` (especificado para lector ESP32)
-  const { data: byShortCol, error: errShort } = await supabaseAdmin
-    .from('users')
-    .select('*')
-    .ilike('nfc_token_h', cleanToken)
-    .eq('is_deleted', false)
-    .maybeSingle();
+  const cleanToken = normalizeNfcToken(rawToken);
+  const canonicalTarget = canonicalizeNfcToken(cleanToken);
 
-  if (!errShort && byShortCol) {
-    return { student: byShortCol as UserNfcRow, errorMessage: null };
-  }
-
-  // 2. Intentar búsqueda por campo `nfc_token_hash` (definido en Schema.sql)
+  // 1. Consulta flexible case-insensitive sobre `nfc_token_hash` en public.users
   const { data: byHashCol, error: errHash } = await supabaseAdmin
     .from('users')
     .select('*')
@@ -45,10 +54,61 @@ async function findStudentByNfcToken(cleanToken: string): Promise<{
     return { student: byHashCol as UserNfcRow, errorMessage: null };
   }
 
-  if (errShort && errHash) {
+  // 2. Consulta flexible case-insensitive con comodines por si el valor en BD tiene espacios al inicio/final
+  const { data: byTrimmedHash, error: errTrimmed } = await supabaseAdmin
+    .from('users')
+    .select('*')
+    .ilike('nfc_token_hash', `%${cleanToken}%`)
+    .eq('is_deleted', false)
+    .limit(10);
+
+  if (!errTrimmed && Array.isArray(byTrimmedHash) && byTrimmedHash.length > 0) {
+    const exactTrimMatch = (byTrimmedHash as UserNfcRow[]).find(
+      (u) => normalizeNfcToken(u.nfc_token_hash) === cleanToken
+    );
+    if (exactTrimMatch) {
+      return { student: exactTrimMatch, errorMessage: null };
+    }
+  }
+
+  // 3. Intentar búsqueda por columna alternativa `nfc_token_h` si existe en el esquema
+  const { data: byShortCol, error: errShort } = await supabaseAdmin
+    .from('users')
+    .select('*')
+    .ilike('nfc_token_h', cleanToken)
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (!errShort && byShortCol) {
+    return { student: byShortCol as UserNfcRow, errorMessage: null };
+  }
+
+  // 4. Respaldo tolerante a variaciones de formato (ej. "04:A3:2B:81" vs "04 A3 2B 81" vs "04A32B81")
+  const { data: usersWithTokens, error: listErr } = await supabaseAdmin
+    .from('users')
+    .select('*')
+    .not('nfc_token_hash', 'is', null)
+    .eq('is_deleted', false);
+
+  if (!listErr && Array.isArray(usersWithTokens)) {
+    const matchedUser = (usersWithTokens as UserNfcRow[]).find((u) => {
+      const dbNorm = normalizeNfcToken(u.nfc_token_hash);
+      const dbCanonical = canonicalizeNfcToken(u.nfc_token_hash);
+      return (
+        dbNorm === cleanToken ||
+        (canonicalTarget.length > 0 && dbCanonical === canonicalTarget)
+      );
+    });
+
+    if (matchedUser) {
+      return { student: matchedUser, errorMessage: null };
+    }
+  }
+
+  if (errHash && errShort && listErr) {
     return {
       student: null,
-      errorMessage: errHash.message || errShort.message,
+      errorMessage: errHash.message || listErr.message || errShort.message,
     };
   }
 
@@ -120,7 +180,9 @@ export async function POST(request: NextRequest) {
 
     // Modo principal: validación de `nfc_token` (enviado por ESP32 o cliente)
     const rawToken = body?.nfc_token ?? body?.nfcToken ?? '';
-    const cleanToken = String(rawToken).trim();
+    const cleanToken = String(rawToken).trim().toUpperCase();
+    console.log('Token recibido:', cleanToken);
+
     const explicitExamId = body?.exam_id
       ? String(body.exam_id).trim()
       : '';

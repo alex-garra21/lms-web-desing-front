@@ -32,7 +32,9 @@ export async function updateStudentNfcAction(
   try {
     const studentId = input.studentId?.trim();
     const rawToken =
-      typeof input.nfcTokenHash === 'string' ? input.nfcTokenHash.trim() : '';
+      typeof input.nfcTokenHash === 'string'
+        ? input.nfcTokenHash.trim().toUpperCase()
+        : '';
     const cleanToken = rawToken.length > 0 ? rawToken : null;
 
     if (!studentId) {
@@ -76,7 +78,7 @@ export async function updateStudentNfcAction(
       const { data: duplicateUser } = await supabaseAdmin
         .from('users')
         .select('id, nombres, apellidos')
-        .eq('nfc_token_hash', cleanToken)
+        .ilike('nfc_token_hash', cleanToken)
         .neq('id', studentId)
         .maybeSingle();
 
