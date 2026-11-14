@@ -110,7 +110,7 @@ export default function AboutPage() {
           </div>
           <div className="rounded-[28px] border border-slate-200 bg-surface p-6 shadow-sm dark:border-slate-800 sm:p-8">
             <p className="text-base leading-7 text-slate-600 dark:text-slate-300">
-              El LMS permite que los instructores publiquen cursos organizados en módulos y lecciones. Los estudiantes pueden inscribirse, avanzar por el contenido, presentar evaluaciones de opción múltiple con calificación automática y consultar su progreso y resultados.
+              El LMS permite que los docentes publiquen cursos organizados en módulos y lecciones. Los estudiantes pueden inscribirse, avanzar por el contenido, presentar evaluaciones de opción múltiple con calificación automática y consultar su progreso y resultados.
             </p>
             <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
               El proyecto también contempla herramientas para que el instructor revise el avance y las calificaciones del curso, además de emitir una constancia simple cuando el estudiante complete los requisitos.
