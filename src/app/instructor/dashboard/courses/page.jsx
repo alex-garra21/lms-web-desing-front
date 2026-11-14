@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import CustomSelect from '@/components/CustomSelect';
 import { useInstructor } from '../InstructorProvider';
 import {
   CourseSelect,
@@ -61,12 +62,17 @@ export default function InstructorCoursesPage() {
                 <p className="text-xs text-slate-500">Evaluaciones</p>
                 <p className="mt-1 font-bold text-foreground">{selectedCourse.evaluations.length}</p>
               </div>
-              <label className={`${labelClass} sm:col-span-3`}>
-                Estado del curso
-                <select value={selectedCourse.status} onChange={(event) => updateCourse(selectedCourse.id, (course) => ({ ...course, status: event.target.value }))} className={inputClass}>
-                  {courseStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                </select>
-              </label>
+              <div className={`${labelClass} sm:col-span-3`}>
+                <span className="mb-1.5 block">Estado del curso</span>
+                <CustomSelect
+                  label=""
+                  value={selectedCourse.status}
+                  onChange={(newValue) => updateCourse(selectedCourse.id, (course) => ({ ...course, status: newValue }))}
+                  options={courseStatuses.map((status) => ({ value: status.value, label: status.label }))}
+                  fullWidth
+                  buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+                />
+              </div>
               <p className="text-sm leading-6 text-slate-600 dark:text-slate-300 sm:col-span-3">{selectedCourse.description}</p>
             </div>
           )}

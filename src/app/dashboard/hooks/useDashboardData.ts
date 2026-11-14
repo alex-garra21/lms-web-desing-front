@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 import { decodeId, maskRoute } from '@/utils/routeHasher';
+import { ToastMessage, ToastType } from '@/components/Toast';
 import { isValidUserRole } from '../utils';
 import { ROLE_META, TABS_BY_ROLE } from '../constants';
 import type {
@@ -28,8 +29,28 @@ export function useDashboardData() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState<string>('');
-  const [feedback, setFeedback] = useState<StatusFeedback | null>(null);
+  const [feedback, setFeedbackState] = useState<StatusFeedback | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sessionError, setSessionError] = useState<string>('');
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const addToast = useCallback((message: string, type: ToastType = 'info') => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+  }, []);
+
+  const setFeedback = useCallback(
+    (fb: StatusFeedback | null) => {
+      setFeedbackState(fb);
+      if (fb && fb.message) {
+        addToast(fb.message, fb.type);
+      }
+    },
+    [addToast]
+  );
 
   // Estados compartidos / administrativos
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -691,9 +712,12 @@ export function useDashboardData() {
     resolvedActiveTab,
     roleMeta,
 
-    // Feedback
+    // Feedback y Toasts
     feedback,
     setFeedback,
+    toasts,
+    addToast,
+    dismissToast,
 
     // Métricas
     roleMetrics,

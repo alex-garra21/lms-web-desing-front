@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { supabase } from '@/utils/supabaseClient';
-import { Button, Input, Select } from '@/components';
+import { Button, Input, CustomSelect } from '@/components';
 import VideoPlayer from '@/components/VideoPlayer';
 import { maskRoute, encodeId } from '@/utils/routeHasher';
 import { generateInstitutionalCode } from '../../utils';
@@ -301,18 +301,23 @@ export function InstructorCoursesModule({
           </div>
 
           {courses.length > 0 && (
-            <div className="w-full md:w-80">
-              <Select
-                label="Curso activo en edición"
+            <div className="flex w-full flex-col gap-1.5 md:w-80">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Curso activo en edición
+              </label>
+              <CustomSelect
+                label=""
                 value={selectedCourseId}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  onSelectCourse(e.target.value);
+                onChange={(newValue: string) => {
+                  onSelectCourse(newValue);
                   onSelectModule('');
                 }}
                 options={courses.map((course) => ({
                   value: course.id,
                   label: course.titulo,
                 }))}
+                fullWidth
+                buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
               />
             </div>
           )}
@@ -513,19 +518,27 @@ export function InstructorCoursesModule({
 
           <form onSubmit={handleSaveContent} className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
             <div className="grid gap-3 sm:grid-cols-[1fr_100px]">
-              <Select
-                label="Módulo"
-                value={effectiveContentModuleId}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setContentForm((prev) => ({ ...prev, module_id: e.target.value }))
-                }
-                placeholder="Selecciona módulo"
-                options={courseModules.map((m) => ({
-                  value: m.id,
-                  label: `${m.orden}. ${m.titulo}`,
-                }))}
-                required
-              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Módulo <span className="ml-1 font-bold text-rose-500">*</span>
+                </label>
+                <CustomSelect
+                  label=""
+                  value={effectiveContentModuleId}
+                  onChange={(newValue: string) =>
+                    setContentForm((prev) => ({ ...prev, module_id: newValue }))
+                  }
+                  options={[
+                    { value: '', label: 'Selecciona módulo' },
+                    ...courseModules.map((m) => ({
+                      value: m.id,
+                      label: `${m.orden}. ${m.titulo}`,
+                    })),
+                  ]}
+                  fullWidth
+                  buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+                />
+              </div>
               <Input
                 label="Orden"
                 type="number"

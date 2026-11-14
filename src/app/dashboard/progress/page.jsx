@@ -1,5 +1,6 @@
 import StudentShell from '../StudentShell';
 import { enrolledCourses, progressActivity } from '../studentData';
+import { encodeId } from '@/utils/routeHasher';
 
 const averageProgress = Math.round(
   enrolledCourses.reduce((total, course) => total + course.progress, 0) / enrolledCourses.length,
@@ -38,7 +39,7 @@ export default function StudentProgressPage() {
           <h2 className="text-xl font-black text-foreground">Avance por curso</h2>
           <div className="mt-4 space-y-4">
             {enrolledCourses.map((course) => (
-              <article id={`course-${course.id}`} key={course.id} className="scroll-mt-28 rounded-[26px] border border-slate-200 bg-surface p-5 shadow-sm dark:border-slate-800 sm:p-6">
+              <article id={`course-${encodeId(course.id)}`} key={course.id} className="scroll-mt-28 rounded-[26px] border border-slate-200 bg-surface p-5 shadow-sm dark:border-slate-800 sm:p-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
                     <span className="text-xs font-semibold text-brand">{course.category}</span>

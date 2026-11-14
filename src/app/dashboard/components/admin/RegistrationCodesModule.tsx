@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabaseClient';
-import { Button, Input, Select } from '@/components';
+import { Button, Input, CustomSelect } from '@/components';
 import { maskRoute } from '@/utils/routeHasher';
 import {
   generateInstitutionalCode,
@@ -184,33 +184,43 @@ export function RegistrationCodesModule({
         </p>
 
         <form onSubmit={handleGenerateCode} className="mt-5 space-y-4">
-          <Select
-            label="Tipo de código"
-            value={tipo}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              setTipo(e.target.value as CodeType)
-            }
-            options={[
-              { value: 'account_creation', label: 'Creación de Cuenta (account_creation)' },
-              { value: 'course_enrollment', label: 'Inscripción a Curso (course_enrollment)' },
-            ]}
-            required
-          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              Tipo de código <span className="ml-1 font-bold text-rose-500">*</span>
+            </label>
+            <CustomSelect
+              label=""
+              value={tipo}
+              onChange={(newValue: string) => setTipo(newValue as CodeType)}
+              options={[
+                { value: 'account_creation', label: 'Creación de Cuenta (account_creation)' },
+                { value: 'course_enrollment', label: 'Inscripción a Curso (course_enrollment)' },
+              ]}
+              fullWidth
+              buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+            />
+          </div>
 
           {tipo === 'course_enrollment' && (
-            <Select
-              label="Curso asignado"
-              value={cursoId}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setCursoId(e.target.value)
-              }
-              placeholder="Selecciona un curso activo"
-              options={courses.map((course) => ({
-                value: course.id,
-                label: course.titulo,
-              }))}
-              required
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Curso asignado <span className="ml-1 font-bold text-rose-500">*</span>
+              </label>
+              <CustomSelect
+                label=""
+                value={cursoId}
+                onChange={(newValue: string) => setCursoId(newValue)}
+                options={[
+                  { value: '', label: 'Selecciona un curso activo' },
+                  ...courses.map((course) => ({
+                    value: course.id,
+                    label: course.titulo,
+                  })),
+                ]}
+                fullWidth
+                buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+              />
+            </div>
           )}
 
           <div className="space-y-2">
@@ -265,27 +275,29 @@ export function RegistrationCodesModule({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Select
+            <CustomSelect
+              label=""
               value={filterTipo}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setFilterTipo(e.target.value)
-              }
+              onChange={(newValue: string) => setFilterTipo(newValue)}
               options={[
                 { value: 'all', label: 'Todos los tipos' },
                 { value: 'account_creation', label: 'account_creation' },
                 { value: 'course_enrollment', label: 'course_enrollment' },
               ]}
+              fullWidth
+              buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
             />
-            <Select
+            <CustomSelect
+              label=""
               value={filterUsed}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setFilterUsed(e.target.value)
-              }
+              onChange={(newValue: string) => setFilterUsed(newValue)}
               options={[
                 { value: 'all', label: 'Todos los estados' },
                 { value: 'available', label: 'Disponibles' },
                 { value: 'used', label: 'Utilizados' },
               ]}
+              fullWidth
+              buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
             />
           </div>
         </div>

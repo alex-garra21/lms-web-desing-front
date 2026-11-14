@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabaseClient';
-import { Button, Select } from '@/components';
+import { Button, CustomSelect } from '@/components';
 import { maskRoute } from '@/utils/routeHasher';
 import { formatDateTime } from '../../utils';
 import type {
@@ -116,18 +116,22 @@ export function StudentReviewsModule({
           </p>
         ) : (
           <form onSubmit={handleSaveReview} className="mt-5 space-y-4">
-            <Select
-              label="Curso finalizado"
-              value={effectiveCourseId}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setCourseId(e.target.value)
-              }
-              options={finishedEnrollments.map((e) => ({
-                value: e.course_id,
-                label: e.courses?.titulo || 'Curso finalizado',
-              }))}
-              required
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Curso finalizado <span className="ml-1 font-bold text-rose-500">*</span>
+              </label>
+              <CustomSelect
+                label=""
+                value={effectiveCourseId}
+                onChange={(newValue: string) => setCourseId(newValue)}
+                options={finishedEnrollments.map((e) => ({
+                  value: e.course_id,
+                  label: e.courses?.titulo || 'Curso finalizado',
+                }))}
+                fullWidth
+                buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+              />
+            </div>
 
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">

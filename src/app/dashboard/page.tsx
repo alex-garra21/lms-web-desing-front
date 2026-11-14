@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Navbar from '@/components/Navbar';
+import { ToastContainer } from '@/components/Toast';
 import { maskRoute } from '@/utils/routeHasher';
 import { useDashboardData } from './hooks';
 import {
@@ -14,7 +15,7 @@ import {
   AdminUsersModule,
   RegistrationCodesModule,
   SystemAuditModule,
-} from './components/admin';
+} from './components/admin/index';
 import {
   UserProfileEditModule,
   UserSecurityModule,
@@ -42,6 +43,8 @@ export default function DashboardPage() {
     roleMeta,
     feedback,
     setFeedback,
+    toasts,
+    dismissToast,
     roleMetrics,
     selectedCourseId,
     setSelectedCourseId,
@@ -74,6 +77,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       <Navbar
         role={profile ? profile.rol : 'public'}
         user={
@@ -103,12 +108,6 @@ export default function DashboardPage() {
           <>
             {/* Tarjetas KPI: exclusivamente en Panel de Administración principal */}
             {isOverview && <DashboardMetrics metrics={roleMetrics} />}
-
-            {/* Alertas globales de retroalimentación */}
-            <FeedbackAlert
-              feedback={feedback}
-              onClose={() => setFeedback(null)}
-            />
 
             {/* Renderizado estricto por rol */}
             <div className={isOverview ? 'mt-8' : 'mt-2'}>

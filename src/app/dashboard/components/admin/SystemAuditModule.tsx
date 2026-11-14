@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabaseClient';
-import { Button, Select } from '@/components';
+import { Button, CustomSelect } from '@/components';
 import { maskRoute, encodeId } from '@/utils/routeHasher';
 import { formatDateTime, recordAuditLog } from '../../utils';
 import type {
@@ -116,21 +116,21 @@ export function SystemAuditModule({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Select
+            <CustomSelect
+              label=""
               value={tableFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setTableFilter(e.target.value)
-              }
+              onChange={(newValue: string) => setTableFilter(newValue)}
               options={[
                 { value: 'all', label: 'Todas las tablas' },
                 ...availableTables.map((table) => ({ value: table, label: table })),
               ]}
+              fullWidth
+              buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
             />
-            <Select
+            <CustomSelect
+              label=""
               value={operationFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setOperationFilter(e.target.value)
-              }
+              onChange={(newValue: string) => setOperationFilter(newValue)}
               options={[
                 { value: 'all', label: 'Todas las operaciones' },
                 { value: 'INSERT', label: 'INSERT' },
@@ -139,6 +139,8 @@ export function SystemAuditModule({
                 { value: 'DELETE', label: 'DELETE' },
                 { value: 'RESTORE', label: 'RESTORE' },
               ]}
+              fullWidth
+              buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
             />
             <Button variant="secondary" onClick={() => onReloadAudit()}>
               Actualizar bitácora

@@ -2,6 +2,7 @@
 
 import { useInstructor } from './InstructorProvider';
 import Link from 'next/link';
+import { maskRoute } from '@/utils/routeHasher';
 import { InstructorPage, MetricCard, RouteLink, SectionCard } from './InstructorUI';
 
 const instructorRoutes = [
@@ -49,7 +50,7 @@ export default function InstructorDashboardPage() {
             <article key={route.href} className="rounded-2xl border border-slate-200 p-5 dark:border-slate-700">
               <h2 className="font-bold text-foreground">{route.title}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{route.description}</p>
-              <Link href={route.href} className="mt-4 inline-flex text-sm font-bold text-blue-700 hover:text-blue-600 dark:text-blue-300">
+              <Link href={maskRoute(route.href)} className="mt-4 inline-flex text-sm font-bold text-blue-700 hover:text-blue-600 dark:text-blue-300">
                 {route.action} <span aria-hidden="true" className="ml-1">→</span>
               </Link>
             </article>

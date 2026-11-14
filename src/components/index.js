@@ -5,3 +5,4 @@ export { VideoPlayer, default as VideoPlayerDefault, extractYouTubeId } from './
 export { Input, default as InputDefault } from './Input';
 export { Select, default as SelectDefault } from './Select';
 export { default as CustomSelect } from './CustomSelect';
+export { ToastContainer } from './Toast';

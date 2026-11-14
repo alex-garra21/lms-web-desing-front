@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import CustomSelect from '@/components/CustomSelect';
 import { useInstructor } from '../InstructorProvider';
 import {
   CourseSelect,
@@ -107,12 +108,17 @@ export default function InstructorAssessmentsPage() {
                 Título
                 <input required maxLength={200} value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className={inputClass} placeholder="Ej. Evaluación del módulo 1" />
               </label>
-              <label className={labelClass}>
-                Módulo asociado
-                <select required value={selectedCourse.modules.some((moduleItem) => moduleItem.id === form.moduleId) ? form.moduleId : (selectedCourse.modules[0]?.id ?? '')} onChange={(event) => setForm((current) => ({ ...current, moduleId: event.target.value }))} className={inputClass} disabled={!selectedCourse.modules.length}>
-                  {selectedCourse.modules.map((moduleItem) => <option key={moduleItem.id} value={moduleItem.id}>{moduleItem.order}. {moduleItem.title}</option>)}
-                </select>
-              </label>
+              <div className={labelClass}>
+                <span className="mb-1.5 block">Módulo asociado</span>
+                <CustomSelect
+                  label=""
+                  value={selectedCourse.modules.some((moduleItem) => moduleItem.id === form.moduleId) ? form.moduleId : (selectedCourse.modules[0]?.id ?? '')}
+                  onChange={(newValue) => setForm((current) => ({ ...current, moduleId: newValue }))}
+                  options={selectedCourse.modules.map((moduleItem) => ({ value: moduleItem.id, label: `${moduleItem.order}. ${moduleItem.title}` }))}
+                  fullWidth
+                  buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+                />
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 {[
                   ['Puntaje mínimo', 'minimumScore', '1', '100'],
@@ -164,13 +170,20 @@ export default function InstructorAssessmentsPage() {
                   <textarea required rows={3} value={question.prompt} onChange={(event) => setQuestion((current) => ({ ...current, prompt: event.target.value }))} className={`${inputClass} resize-y`} placeholder="Escribe la pregunta" />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
-                  <label className={labelClass}>
-                    Tipo
-                    <select value={question.type} onChange={(event) => setQuestion((current) => ({ ...current, type: event.target.value }))} className={inputClass}>
-                      <option value="OPCION_MULTIPLE">Opción múltiple</option>
-                      <option value="VERDADERO_FALSO">Verdadero / falso</option>
-                    </select>
-                  </label>
+                  <div className={labelClass}>
+                    <span className="mb-1.5 block">Tipo</span>
+                    <CustomSelect
+                      label=""
+                      value={question.type}
+                      onChange={(newValue) => setQuestion((current) => ({ ...current, type: newValue }))}
+                      options={[
+                        { value: 'OPCION_MULTIPLE', label: 'Opción múltiple' },
+                        { value: 'VERDADERO_FALSO', label: 'Verdadero / falso' },
+                      ]}
+                      fullWidth
+                      buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+                    />
+                  </div>
                   <label className={labelClass}>
                     Valor en puntos
                     <input type="number" min="0.1" step="0.1" required value={question.weight} onChange={(event) => setQuestion((current) => ({ ...current, weight: event.target.value }))} className={inputClass} />

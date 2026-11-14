@@ -159,8 +159,10 @@ export interface SoftDeletedItem {
   timestamp: string;
 }
 
+export type StatusFeedbackType = 'success' | 'error' | 'info' | 'warning';
+
 export interface StatusFeedback {
-  type: 'success' | 'error';
+  type: StatusFeedbackType;
   message: string;
 }
 

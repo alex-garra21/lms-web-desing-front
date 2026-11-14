@@ -2,10 +2,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { supabase } from '@/utils/supabaseClient';
-import { Button, Input, Select } from '@/components';
+import { Button, Input, CustomSelect } from '@/components';
 import { maskRoute, encodeId } from '@/utils/routeHasher';
-import { getRoleDisplayName } from '@/utils/roleHelper';
-import { createEphemeralAuthClient, recordAuditLog } from '../../utils';
+import { getRoleDisplayName, ROLE_MAPPING, normalizeUserRole } from '@/utils/roleHelper';
+import { recordAuditLog } from '../../utils';
+import { createAdminUserAction } from '../../actions/createAdminUserAction';
+import { updateAdminUserAction } from '../../actions/updateUser';
 import type { UserProfile, StatusFeedback, UserRole } from '../../types';
 
 export interface AdminUsersModuleProps {
@@ -29,40 +31,34 @@ export function AdminUsersModule({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [editingUserId, setEditingUserId] = useState<string | null>(
-    () => initialFocusedUser?.id || null
-  );
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [formState, setFormState] = useState(() => ({
-    authId: initialFocusedUser?.id || '',
     nombres: initialFocusedUser?.nombres || '',
     apellidos: initialFocusedUser?.apellidos || '',
     correo: initialFocusedUser?.correo || '',
     password: '',
     fecha_nacimiento: initialFocusedUser?.fecha_nacimiento
       ? initialFocusedUser.fecha_nacimiento.slice(0, 10)
-      : '2000-01-01',
-    direccion: initialFocusedUser?.direccion || 'Campus Cobán, Alta Verapaz',
+      : '',
+    direccion: initialFocusedUser?.direccion || '',
     telefono: initialFocusedUser?.telefono || '',
     rol: (initialFocusedUser?.rol || 'student') as UserRole,
-    codigo_empleado: initialFocusedUser?.codigo_empleado || '',
     nfc_token_hash: initialFocusedUser?.nfc_token_hash || '',
   }));
 
   const startEditUser = (user: UserProfile) => {
     setEditingUserId(user.id);
     setFormState({
-      authId: user.id,
       nombres: user.nombres,
       apellidos: user.apellidos,
       correo: user.correo,
       password: '',
-      fecha_nacimiento: user.fecha_nacimiento ? user.fecha_nacimiento.slice(0, 10) : '2000-01-01',
+      fecha_nacimiento: user.fecha_nacimiento ? user.fecha_nacimiento.slice(0, 10) : '',
       direccion: user.direccion || '',
       telefono: user.telefono || '',
       rol: user.rol,
-      codigo_empleado: user.codigo_empleado || '',
       nfc_token_hash: user.nfc_token_hash || '',
     });
   };
@@ -70,16 +66,14 @@ export function AdminUsersModule({
   const resetForm = () => {
     setEditingUserId(null);
     setFormState({
-      authId: '',
       nombres: '',
       apellidos: '',
       correo: '',
       password: '',
-      fecha_nacimiento: '2000-01-01',
-      direccion: 'Campus Cobán, Alta Verapaz',
+      fecha_nacimiento: '',
+      direccion: '',
       telefono: '',
       rol: 'student',
-      codigo_empleado: '',
       nfc_token_hash: '',
     });
   };
@@ -98,25 +92,23 @@ export function AdminUsersModule({
     try {
       if (editingUserId) {
         const previousUser = users.find((u) => u.id === editingUserId) || null;
-        const payload = {
+        const normalizedRole = normalizeUserRole(formState.rol);
+
+        const res = await updateAdminUserAction({
+          userId: editingUserId,
           nombres: formState.nombres.trim(),
           apellidos: formState.apellidos.trim(),
           correo: formState.correo.trim(),
-          fecha_nacimiento: formState.fecha_nacimiento,
+          rol: normalizedRole,
+          fecha_nacimiento: formState.fecha_nacimiento || '2000-01-01',
           direccion: formState.direccion.trim() || 'Campus Cobán',
           telefono: formState.telefono.trim() || null,
-          rol: formState.rol,
-          codigo_empleado: formState.codigo_empleado.trim() || null,
-          nfc_token_hash: formState.nfc_token_hash.trim() || null,
-          updated_at: new Date().toISOString(),
-        };
+          nfc_token: formState.nfc_token_hash.trim() || null,
+        });
 
-        const { error } = await supabase
-          .from('users')
-          .update(payload)
-          .eq('id', editingUserId);
-
-        if (error) throw new Error(error.message);
+        if (!res.success) {
+          throw new Error(res.message);
+        }
 
         await recordAuditLog({
           tabla_afectada: 'users',
@@ -124,89 +116,72 @@ export function AdminUsersModule({
           operacion: 'UPDATE',
           usuario_id: currentUser.id,
           datos_anteriores: previousUser as unknown as Record<string, unknown>,
-          datos_nuevos: payload,
+          datos_nuevos: res.updatedData || { rol: normalizedRole },
         });
 
         onFeedback({
           type: 'success',
-          message: `Perfil de ${payload.nombres} ${payload.apellidos} actualizado correctamente.`,
+          message: res.message,
         });
         resetForm();
         await onReloadUsers();
       } else {
-        let targetUserId = formState.authId.trim();
-
-        if (!targetUserId) {
-          if (!formState.password || formState.password.length < 6) {
-            onFeedback({
-              type: 'error',
-              message:
-                'Para registrar un usuario nuevo ingresa una contraseña (mínimo 6 caracteres) o un UUID existente de Supabase Auth.',
-            });
-            setIsSaving(false);
-            return;
-          }
-
-          const ephemeralClient = createEphemeralAuthClient();
-          const { data: signUpData, error: signUpError } = await ephemeralClient.auth.signUp({
-            email: formState.correo.trim(),
-            password: formState.password,
-            options: {
-              data: {
-                nombres: formState.nombres.trim(),
-                apellidos: formState.apellidos.trim(),
-                rol: formState.rol,
-              },
-            },
+        if (!formState.password || formState.password.length < 6) {
+          onFeedback({
+            type: 'error',
+            message: 'Para registrar un usuario ingresa una contraseña inicial de al menos 6 caracteres.',
           });
-
-          if (signUpError || !signUpData.user) {
-            throw new Error(
-              signUpError?.message ||
-                'No se pudo crear la cuenta en Supabase Auth.'
-            );
-          }
-
-          targetUserId = signUpData.user.id;
+          setIsSaving(false);
+          return;
         }
 
-        const insertPayload = {
-          id: targetUserId,
+        const normalizedRole = normalizeUserRole(formState.rol);
+
+        const res = await createAdminUserAction({
           nombres: formState.nombres.trim(),
           apellidos: formState.apellidos.trim(),
           correo: formState.correo.trim(),
-          fecha_nacimiento: formState.fecha_nacimiento,
+          password: formState.password,
+          rol: normalizedRole,
+          fecha_nacimiento: formState.fecha_nacimiento || '2000-01-01',
           direccion: formState.direccion.trim() || 'Campus Cobán',
           telefono: formState.telefono.trim() || null,
-          rol: formState.rol,
-          codigo_empleado: formState.codigo_empleado.trim() || null,
-          nfc_token_hash: formState.nfc_token_hash.trim() || null,
-        };
-
-        const { data: createdRow, error: insertError } = await supabase
-          .from('users')
-          .upsert([insertPayload], { onConflict: 'id' })
-          .select()
-          .single();
-
-        if (insertError) throw new Error(insertError.message);
-
-        await recordAuditLog({
-          tabla_afectada: 'users',
-          registro_id: targetUserId,
-          operacion: 'INSERT',
-          usuario_id: currentUser.id,
-          datos_nuevos: (createdRow || insertPayload) as Record<string, unknown>,
+          nfc_token: formState.nfc_token_hash.trim() || null,
         });
+
+        if (!res.success) {
+          throw new Error(res.message);
+        }
+
+        if (res.userId) {
+          await recordAuditLog({
+            tabla_afectada: 'users',
+            registro_id: res.userId,
+            operacion: 'INSERT',
+            usuario_id: currentUser.id,
+            datos_nuevos: {
+              id: res.userId,
+              nombres: formState.nombres.trim(),
+              apellidos: formState.apellidos.trim(),
+              correo: formState.correo.trim(),
+              rol: normalizedRole,
+              fecha_nacimiento: formState.fecha_nacimiento,
+              direccion: formState.direccion.trim(),
+              telefono: formState.telefono.trim() || null,
+              nfc_token_hash: formState.nfc_token_hash.trim() || null,
+            },
+          });
+        }
 
         onFeedback({
           type: 'success',
-          message: `Usuario ${insertPayload.nombres} ${insertPayload.apellidos} creado correctamente.`,
+          message: res.message,
         });
         resetForm();
         await onReloadUsers();
       }
     } catch (err: unknown) {
+      console.error('[AdminUsersModule] Error al guardar usuario:', err);
       onFeedback({
         type: 'error',
         message: err instanceof Error ? err.message : 'Error al guardar el usuario.',
@@ -291,13 +266,13 @@ export function AdminUsersModule({
             </h2>
           </div>
           {editingUserId && (
-            <Button variant="ghost" size="sm" onClick={resetForm}>
+            <Button variant="secondary" size="sm" onClick={resetForm}>
               Cancelar
             </Button>
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4" autoComplete="off">
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="Nombres"
@@ -306,6 +281,7 @@ export function AdminUsersModule({
                 setFormState((prev) => ({ ...prev, nombres: e.target.value }))
               }
               placeholder="María José"
+              autoComplete="off"
               required
             />
             <Input
@@ -315,23 +291,24 @@ export function AdminUsersModule({
                 setFormState((prev) => ({ ...prev, apellidos: e.target.value }))
               }
               placeholder="García López"
+              autoComplete="off"
               required
             />
           </div>
 
-          <Input
-            label="Correo Institucional"
-            type="email"
-            value={formState.correo}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setFormState((prev) => ({ ...prev, correo: e.target.value }))
-            }
-            placeholder="usuario@miumg.edu.gt"
-            required
-          />
-
-          {!editingUserId && (
-            <div className="grid gap-3 sm:grid-cols-2">
+          <div className={`grid gap-3 ${!editingUserId ? 'sm:grid-cols-2' : ''}`}>
+            <Input
+              label="Correo Institucional"
+              type="email"
+              value={formState.correo}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setFormState((prev) => ({ ...prev, correo: e.target.value }))
+              }
+              placeholder="usuario@miumg.edu.gt"
+              autoComplete="off"
+              required
+            />
+            {!editingUserId && (
               <Input
                 label="Contraseña inicial"
                 type="password"
@@ -340,39 +317,40 @@ export function AdminUsersModule({
                   setFormState((prev) => ({ ...prev, password: e.target.value }))
                 }
                 placeholder="Mín. 6 caracteres"
-                helperText="Crea la cuenta en Supabase Auth"
+                helperText="Gestionada vía Supabase Admin API"
+                autoComplete="new-password"
+                required
               />
-              <Input
-                label="UUID Auth (Opcional)"
-                value={formState.authId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormState((prev) => ({ ...prev, authId: e.target.value }))
-                }
-                placeholder="Si ya existe en auth.users"
-              />
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Select
-              label="Rol institucional"
-              value={formState.rol}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  rol: e.target.value as UserRole,
-                }))
-              }
-              options={[
-                { value: 'student', label: 'Estudiante (student)' },
-                { value: 'instructor', label: 'Catedrático (instructor)' },
-                { value: 'administration', label: 'Administración (administration)' },
-                ...(currentUser.rol === 'system'
-                  ? [{ value: 'system', label: 'Sistemas (system)' }]
-                  : []),
-              ]}
-              required
-            />
+            <div className="flex flex-col gap-1.5 w-full">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Rol Institucional <span className="text-rose-500 ml-1 font-bold">*</span>
+              </label>
+              <CustomSelect
+                label=""
+                value={formState.rol}
+                onChange={(newRole: string) => {
+                  const cleanRole = normalizeUserRole(newRole);
+                  setFormState((prev) => ({
+                    ...prev,
+                    rol: cleanRole,
+                  }));
+                }}
+                options={[
+                  { value: 'student', label: ROLE_MAPPING.student },
+                  { value: 'instructor', label: ROLE_MAPPING.instructor },
+                  { value: 'administration', label: ROLE_MAPPING.administration },
+                  ...(currentUser.rol === 'system'
+                    ? [{ value: 'system', label: ROLE_MAPPING.system }]
+                    : []),
+                ]}
+                fullWidth
+                buttonClassName="!rounded-xl !bg-slate-50 !text-slate-900 border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-100 dark:hover:!bg-[#112b45] !py-3 !px-4 shadow-sm"
+              />
+            </div>
             <Input
               label="Fecha de nacimiento"
               type="date"
@@ -387,17 +365,17 @@ export function AdminUsersModule({
             />
           </div>
 
-          <Input
-            label="Dirección / Especialidad"
-            value={formState.direccion}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setFormState((prev) => ({ ...prev, direccion: e.target.value }))
-            }
-            placeholder="Cobán, Alta Verapaz"
-            required
-          />
-
           <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Dirección / Sede"
+              value={formState.direccion}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setFormState((prev) => ({ ...prev, direccion: e.target.value }))
+              }
+              placeholder="Cobán, Alta Verapaz"
+              autoComplete="off"
+              required
+            />
             <Input
               label="Teléfono"
               value={formState.telefono}
@@ -405,23 +383,12 @@ export function AdminUsersModule({
                 setFormState((prev) => ({ ...prev, telefono: e.target.value }))
               }
               placeholder="5555-1234"
-            />
-            <Input
-              label="Código de Empleado"
-              value={formState.codigo_empleado}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  codigo_empleado: e.target.value.toUpperCase(),
-                }))
-              }
-              placeholder="Auto (EMP-DDMMYYYY-XXX)"
-              helperText="Opcional: trigger BD lo genera para docente/admin"
+              autoComplete="off"
             />
           </div>
 
           <Input
-            label="Hash Token NFC (Opcional)"
+            label="Token NFC (Opcional)"
             value={formState.nfc_token_hash}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               setFormState((prev) => ({
@@ -430,6 +397,7 @@ export function AdminUsersModule({
               }))
             }
             placeholder="NFC-UMG-..."
+            autoComplete="off"
           />
 
           <Button type="submit" variant="brand" fullWidth isLoading={isSaving}>
@@ -457,11 +425,10 @@ export function AdminUsersModule({
                 setSearchTerm(e.target.value)
               }
             />
-            <Select
+            <CustomSelect
+              label=""
               value={roleFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setRoleFilter(e.target.value)
-              }
+              onChange={(newValue: string) => setRoleFilter(newValue)}
               options={[
                 { value: 'all', label: 'Todos los roles' },
                 { value: 'student', label: 'Estudiante (student)' },
@@ -469,6 +436,8 @@ export function AdminUsersModule({
                 { value: 'administration', label: 'Administración (administration)' },
                 { value: 'system', label: 'Sistemas (system)' },
               ]}
+              fullWidth
+              buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
             />
           </div>
         </div>

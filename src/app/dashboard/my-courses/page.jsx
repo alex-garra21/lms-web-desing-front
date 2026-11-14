@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Button from '@/components/Button';
 import StudentShell from '../StudentShell';
 import { enrolledCourses } from '../studentData';
-import { maskRoute } from '@/utils/routeHasher';
+import { maskRoute, encodeId } from '@/utils/routeHasher';
 
 export default function MyCoursesPage() {
   return (
@@ -32,7 +32,7 @@ export default function MyCoursesPage() {
         <div className="mt-7 space-y-6">
           {enrolledCourses.map((course) => (
             <article
-              id={`course-${course.id}`}
+              id={`course-${encodeId(course.id)}`}
               key={course.id}
               className="scroll-mt-28 overflow-hidden rounded-[28px] border border-slate-200 bg-surface shadow-sm dark:border-slate-800"
             >
@@ -106,7 +106,7 @@ export default function MyCoursesPage() {
                           Última evaluación registrada: {course.latestScore}/100
                         </p>
                       )}
-                      <Button href={maskRoute(`/dashboard/progress#course-${course.id}`)} variant="brand" size="sm" className="mt-4 rounded-xl">
+                      <Button href={maskRoute(`/dashboard/progress#course-${encodeId(course.id)}`)} variant="brand" size="sm" className="mt-4 rounded-xl">
                         Consultar avance
                       </Button>
                     </div>

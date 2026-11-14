@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabaseClient';
-import { Button, Input, Select } from '@/components';
+import { Button, Input, CustomSelect } from '@/components';
 import { maskRoute, encodeId } from '@/utils/routeHasher';
 import { formatDateTime } from '../../utils';
 import type {
@@ -295,22 +295,30 @@ export function InstructorEvaluationsModule({
           </h2>
 
           <form onSubmit={handleCreateAssignment} className="mt-4 space-y-3">
-            <Select
-              label="Módulo"
-              value={effectiveAssignmentModuleId}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setAssignmentForm((prev) => ({
-                  ...prev,
-                  module_id: e.target.value,
-                }))
-              }
-              placeholder="Selecciona módulo"
-              options={modules.map((m) => ({
-                value: m.id,
-                label: `${courseMap.get(m.course_id)?.titulo || 'Curso'} · ${m.titulo}`,
-              }))}
-              required
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Módulo <span className="ml-1 font-bold text-rose-500">*</span>
+              </label>
+              <CustomSelect
+                label=""
+                value={effectiveAssignmentModuleId}
+                onChange={(newValue: string) =>
+                  setAssignmentForm((prev) => ({
+                    ...prev,
+                    module_id: newValue,
+                  }))
+                }
+                options={[
+                  { value: '', label: 'Selecciona módulo' },
+                  ...modules.map((m) => ({
+                    value: m.id,
+                    label: `${courseMap.get(m.course_id)?.titulo || 'Curso'} · ${m.titulo}`,
+                  })),
+                ]}
+                fullWidth
+                buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+              />
+            </div>
             <Input
               label="Título de la tarea"
               value={assignmentForm.titulo}
@@ -383,19 +391,27 @@ export function InstructorEvaluationsModule({
           </h2>
 
           <form onSubmit={handleCreateExam} className="mt-4 space-y-3">
-            <Select
-              label="Módulo"
-              value={effectiveExamModuleId}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setExamForm((prev) => ({ ...prev, module_id: e.target.value }))
-              }
-              placeholder="Selecciona módulo"
-              options={modules.map((m) => ({
-                value: m.id,
-                label: `${courseMap.get(m.course_id)?.titulo || 'Curso'} · ${m.titulo}`,
-              }))}
-              required
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Módulo <span className="ml-1 font-bold text-rose-500">*</span>
+              </label>
+              <CustomSelect
+                label=""
+                value={effectiveExamModuleId}
+                onChange={(newValue: string) =>
+                  setExamForm((prev) => ({ ...prev, module_id: newValue }))
+                }
+                options={[
+                  { value: '', label: 'Selecciona módulo' },
+                  ...modules.map((m) => ({
+                    value: m.id,
+                    label: `${courseMap.get(m.course_id)?.titulo || 'Curso'} · ${m.titulo}`,
+                  })),
+                ]}
+                fullWidth
+                buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+              />
+            </div>
             <Input
               label="Título del examen"
               value={examForm.titulo}
@@ -406,34 +422,48 @@ export function InstructorEvaluationsModule({
               required
             />
             <div className="grid gap-3 sm:grid-cols-3">
-              <Select
-                label="Tipo"
-                value={examForm.tipo}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setExamForm((prev) => ({
-                    ...prev,
-                    tipo: e.target.value as ExamType,
-                  }))
-                }
-                options={[
-                  { value: 'parcial', label: 'Parcial' },
-                  { value: 'final', label: 'Final' },
-                ]}
-              />
-              <Select
-                label="Modalidad"
-                value={examForm.modalidad}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setExamForm((prev) => ({
-                    ...prev,
-                    modalidad: e.target.value as ExamModality,
-                  }))
-                }
-                options={[
-                  { value: 'presencial', label: 'Presencial (NFC)' },
-                  { value: 'virtual', label: 'Virtual' },
-                ]}
-              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Tipo
+                </label>
+                <CustomSelect
+                  label=""
+                  value={examForm.tipo}
+                  onChange={(newValue: string) =>
+                    setExamForm((prev) => ({
+                      ...prev,
+                      tipo: newValue as ExamType,
+                    }))
+                  }
+                  options={[
+                    { value: 'parcial', label: 'Parcial' },
+                    { value: 'final', label: 'Final' },
+                  ]}
+                  fullWidth
+                  buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Modalidad
+                </label>
+                <CustomSelect
+                  label=""
+                  value={examForm.modalidad}
+                  onChange={(newValue: string) =>
+                    setExamForm((prev) => ({
+                      ...prev,
+                      modalidad: newValue as ExamModality,
+                    }))
+                  }
+                  options={[
+                    { value: 'presencial', label: 'Presencial (NFC)' },
+                    { value: 'virtual', label: 'Virtual' },
+                  ]}
+                  fullWidth
+                  buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
+                />
+              </div>
               <Input
                 label="Punteo máx."
                 type="number"
@@ -572,17 +602,22 @@ export function InstructorEvaluationsModule({
             </h3>
           </div>
 
-          <div className="w-full sm:w-72">
-            <Select
-              label="Filtrar por tarea"
+          <div className="flex w-full flex-col gap-1.5 sm:w-72">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              Filtrar por tarea
+            </label>
+            <CustomSelect
+              label=""
               value={effectiveAssignmentFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setSelectedAssignmentFilter(e.target.value)
+              onChange={(newValue: string) =>
+                setSelectedAssignmentFilter(newValue)
               }
               options={[
                 { value: 'all', label: 'Todas las tareas' },
                 ...assignments.map((a) => ({ value: a.id, label: a.titulo })),
               ]}
+              fullWidth
+              buttonClassName="!rounded-xl !bg-surface !text-foreground border !border-slate-300 dark:!border-slate-700 dark:!bg-[#0c1f34] dark:!text-white hover:!bg-slate-50 dark:hover:!bg-[#112b45] !py-2.5 !px-3.5 shadow-sm"
             />
           </div>
         </div>
