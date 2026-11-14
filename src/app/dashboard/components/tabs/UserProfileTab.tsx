@@ -134,11 +134,6 @@ export function UserProfileTab({
               <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-bold text-brand">
                 {getRoleDisplayName(currentUser.rol)}
               </span>
-              {currentUser.codigo_empleado && (
-                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-bold text-emerald-600 dark:text-emerald-300">
-                  {currentUser.codigo_empleado}
-                </span>
-              )}
             </div>
           </div>
         </div>

@@ -22,19 +22,6 @@ export const ROLE_NAV_LINKS = {
   ],
   student: [
     { label: 'Mi Panel', href: '/dashboard' },
-<<<<<<< HEAD
-    { label: 'Mis Cursos', href: '/dashboard/my-courses' },
-    { label: 'Explorar', href: '/dashboard/explore' },
-    { label: 'Avance', href: '/dashboard/progress' },
-    { label: 'Recursos', href: '/dashboard/resources' },
-  ],
-  instructor: [
-    { label: 'Panel Docente', href: '/instructor/dashboard' },
-    { label: 'Cursos', href: '/instructor/dashboard/courses' },
-    { label: 'Contenido', href: '/instructor/dashboard/content' },
-    { label: 'Evaluaciones', href: '/instructor/dashboard/assessments' },
-    { label: 'ESP / NFC', href: '/instructor/dashboard/iot' },
-=======
     { label: 'Catálogo de Cursos', href: '/courses' },
     { label: 'Mis Cursos', href: '/dashboard?tab=my-courses' },
     { label: 'Tareas y Exámenes', href: '/dashboard?tab=tasks-exams' },
@@ -56,7 +43,6 @@ export const ROLE_NAV_LINKS = {
     { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
     { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
     { label: 'Supervisión de Cursos', href: '/courses' },
->>>>>>> origin/main
   ],
   secretary: [
     { label: 'Panel de Administración', href: '/dashboard' },
@@ -262,12 +248,8 @@ export function Navbar({
       <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <Link
-<<<<<<< HEAD
-            href={maskRoute(isAuthenticated ? (activeRole === 'instructor' ? '/instructor/dashboard' : '/dashboard') : '/')}
-=======
             href={maskRoute(isAuthenticated ? '/dashboard' : '/')}
             onClick={notifyDashboardUrlChange}
->>>>>>> origin/main
             className="flex items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-900/40">
@@ -358,16 +340,6 @@ export function Navbar({
                 </button>
 
                 {userDropdownOpen && (
-<<<<<<< HEAD
-                  <div role="menu" className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl border border-sky-800 bg-[#0a1c2f] p-2 shadow-2xl z-50">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        onLogout?.();
-                      }}
-                      role="menuitem"
-=======
                   <div className="absolute right-0 mt-2 w-52 origin-top-right rounded-2xl border border-sky-800 bg-[#0a1c2f] p-2 shadow-2xl z-50">
                     <Link
                       href={maskRoute('/dashboard?tab=profile')}
@@ -386,7 +358,6 @@ export function Navbar({
                     <button
                       type="button"
                       onClick={handleLogout}
->>>>>>> origin/main
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-[#112b45] transition-colors"
                     >
                       Cerrar Sesión
