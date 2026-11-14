@@ -40,6 +40,12 @@ export const ROLE_META: Record<
   },
 };
 
+export const OVERVIEW_TAB: DashboardTab = {
+  id: 'overview',
+  label: 'Panel de Administración',
+  description: 'Métricas institucionales y resumen general de Campus Cobán',
+};
+
 export const PROFILE_TAB: DashboardTab = {
   id: 'profile',
   label: 'Editar Datos',
@@ -54,6 +60,7 @@ export const SECURITY_TAB: DashboardTab = {
 
 export const TABS_BY_ROLE: Record<UserRole, DashboardTab[]> = {
   system: [
+    OVERVIEW_TAB,
     {
       id: 'users',
       label: 'Gestión de Usuarios',
@@ -73,6 +80,7 @@ export const TABS_BY_ROLE: Record<UserRole, DashboardTab[]> = {
     SECURITY_TAB,
   ],
   administration: [
+    OVERVIEW_TAB,
     {
       id: 'users',
       label: 'Gestión de Usuarios',

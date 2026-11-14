@@ -67,7 +67,7 @@ export function useDashboardData() {
     const userHash = params.get('user');
     const assignmentHash = params.get('assignment');
 
-    setActiveTab(tabParam || '');
+    setActiveTab(tabParam || 'overview');
     if (courseHash) {
       const decodedCourse = decodeId(courseHash);
       if (decodedCourse) setSelectedCourseId(decodedCourse);
@@ -468,7 +468,7 @@ export function useDashboardData() {
           : null;
       const defaultTab = TABS_BY_ROLE[exactRole][0].id;
       setActiveTab((prev) => {
-        const candidate = urlTab || prev;
+        const candidate = urlTab || (prev && prev !== '' ? prev : defaultTab);
         return TABS_BY_ROLE[exactRole].some((tab) => tab.id === candidate)
           ? candidate
           : defaultTab;
@@ -501,8 +501,18 @@ export function useDashboardData() {
     }, 0);
 
     const onUrlChange = () => syncUrlParams();
+    const onTabChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tab?: string }>;
+      if (customEvent.detail?.tab) {
+        setActiveTab(customEvent.detail.tab);
+      } else {
+        syncUrlParams();
+      }
+    };
+
     window.addEventListener('popstate', onUrlChange);
     window.addEventListener('lms:urlchange', onUrlChange);
+    window.addEventListener('lms:tabchange', onTabChange);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
       void initializeSession();
@@ -513,6 +523,7 @@ export function useDashboardData() {
       window.clearTimeout(timerId);
       window.removeEventListener('popstate', onUrlChange);
       window.removeEventListener('lms:urlchange', onUrlChange);
+      window.removeEventListener('lms:tabchange', onTabChange);
       authListener.subscription.unsubscribe();
     };
   }, [initializeSession, syncUrlParams]);
@@ -641,6 +652,20 @@ export function useDashboardData() {
     studentReviews.length,
   ]);
 
+  const handleTabChange = useCallback((newTab: string) => {
+    setActiveTab(newTab);
+    if (typeof window !== 'undefined') {
+      const targetUrl =
+        newTab && newTab !== 'overview'
+          ? maskRoute(`/dashboard?tab=${newTab}`)
+          : maskRoute('/dashboard');
+      window.history.pushState({}, '', targetUrl);
+      window.dispatchEvent(
+        new CustomEvent('lms:tabchange', { detail: { tab: newTab } })
+      );
+    }
+  }, []);
+
   const roleMeta = profile ? ROLE_META[profile.rol] : null;
   const availableTabs = profile ? TABS_BY_ROLE[profile.rol] : [];
   const resolvedActiveTab =
@@ -648,7 +673,7 @@ export function useDashboardData() {
     activeTab &&
     availableTabs.some((tab) => tab.id === activeTab)
       ? activeTab
-      : availableTabs[0]?.id || '';
+      : availableTabs[0]?.id || 'overview';
 
   return {
     // Estado de sesión y autenticación
@@ -662,6 +687,7 @@ export function useDashboardData() {
     // Navegación
     activeTab,
     setActiveTab,
+    handleTabChange,
     resolvedActiveTab,
     roleMeta,
 

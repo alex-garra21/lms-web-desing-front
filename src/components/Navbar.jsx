@@ -69,9 +69,8 @@ function normalizeRole(value) {
 
 function notifyDashboardUrlChange() {
   if (typeof window !== 'undefined') {
-    window.setTimeout(() => {
-      window.dispatchEvent(new Event('lms:urlchange'));
-    }, 0);
+    window.dispatchEvent(new Event('lms:urlchange'));
+    window.dispatchEvent(new PopStateEvent('popstate'));
   }
 }
 
@@ -80,6 +79,7 @@ function notifyDashboardUrlChange() {
  * @param {any} [props.user]
  * @param {string} [props.role]
  * @param {Function} [props.onLogout]
+ * @param {Function} [props.onTabChange]
  * @param {string} [props.currentPath]
  * @param {number} [props.notificationsCount]
  * @param {string} [props.className]
@@ -88,6 +88,7 @@ export function Navbar({
   user = null,
   role = 'public',
   onLogout,
+  onTabChange,
   currentPath = '/',
   notificationsCount = 0,
   className = '',
@@ -109,6 +110,11 @@ export function Navbar({
     setUserDropdownOpen(false);
     setMobileMenuOpen(false);
 
+    if (onTabChange) {
+      onTabChange('profile');
+      return;
+    }
+
     const targetUrl = maskRoute('/dashboard?tab=profile');
     if (typeof window !== 'undefined') {
       window.history.pushState({}, '', targetUrl);
@@ -125,6 +131,11 @@ export function Navbar({
     setUserDropdownOpen(false);
     setMobileMenuOpen(false);
 
+    if (onTabChange) {
+      onTabChange('security');
+      return;
+    }
+
     const targetUrl = maskRoute('/dashboard?tab=security');
     if (typeof window !== 'undefined') {
       window.history.pushState({}, '', targetUrl);
@@ -132,6 +143,20 @@ export function Navbar({
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
     router.push(targetUrl);
+  };
+
+  const handleLinkClick = (e, rawHref) => {
+    if (rawHref.startsWith('/dashboard')) {
+      const url = new URL(rawHref, 'http://localhost');
+      const tab = url.searchParams.get('tab') || 'overview';
+      if (onTabChange) {
+        e.preventDefault();
+        onTabChange(tab);
+        setMobileMenuOpen(false);
+        return;
+      }
+    }
+    notifyDashboardUrlChange();
   };
 
   useEffect(() => {
@@ -213,6 +238,7 @@ export function Navbar({
   // Enmascaramiento obligatorio de rutas para prevenir IDOR
   const navLinks = rawLinks.map(link => ({
     ...link,
+    rawHref: link.href,
     href: maskRoute(link.href)
   }));
 
@@ -249,7 +275,13 @@ export function Navbar({
         <div className="flex items-center gap-8">
           <Link
             href={maskRoute(isAuthenticated ? '/dashboard' : '/')}
-            onClick={notifyDashboardUrlChange}
+            onClick={(e) => {
+              if (isAuthenticated) {
+                handleLinkClick(e, '/dashboard');
+              } else {
+                notifyDashboardUrlChange();
+              }
+            }}
             className="flex items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-900/40">
@@ -274,7 +306,7 @@ export function Navbar({
                 <Link
                   key={link.href}
                   href={link.href}
-                  onClick={notifyDashboardUrlChange}
+                  onClick={(e) => handleLinkClick(e, link.rawHref)}
                   className={`
                     rounded-xl px-5 py-3 text-base font-semibold transition-all duration-200
                     ${isActive
@@ -401,10 +433,7 @@ export function Navbar({
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  notifyDashboardUrlChange();
-                }}
+                onClick={(e) => handleLinkClick(e, link.rawHref)}
                 className="rounded-xl px-3 py-2 text-sm font-medium text-slate-200 hover:bg-[#0d1d33]"
               >
                 {link.label}

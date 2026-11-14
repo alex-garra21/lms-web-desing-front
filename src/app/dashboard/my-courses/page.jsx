@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Button from '@/components/Button';
 import StudentShell from '../StudentShell';
 import { enrolledCourses } from '../studentData';
-import { maskRoute } from '@/app/utils/routeHasher';
+import { maskRoute } from '@/utils/routeHasher';
 
 export default function MyCoursesPage() {
   return (

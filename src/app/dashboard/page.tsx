@@ -37,6 +37,7 @@ export default function DashboardPage() {
     setProfile,
     sessionError,
     handleLogout,
+    handleTabChange,
     resolvedActiveTab,
     roleMeta,
     feedback,
@@ -69,6 +70,8 @@ export default function DashboardPage() {
     examSubmissions,
   } = useDashboardData();
 
+  const isOverview = resolvedActiveTab === 'overview';
+
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
       <Navbar
@@ -83,8 +86,9 @@ export default function DashboardPage() {
             : null
         }
         onLogout={handleLogout}
+        onTabChange={handleTabChange}
         currentPath={
-          resolvedActiveTab
+          resolvedActiveTab && resolvedActiveTab !== 'overview'
             ? maskRoute(`/dashboard?tab=${resolvedActiveTab}`)
             : maskRoute('/dashboard')
         }
@@ -97,8 +101,8 @@ export default function DashboardPage() {
           <DashboardAuthRequired sessionError={sessionError} />
         ) : (
           <>
-            {/* Tarjetas KPI */}
-            <DashboardMetrics metrics={roleMetrics} />
+            {/* Tarjetas KPI: exclusivamente en Panel de Administración principal */}
+            {isOverview && <DashboardMetrics metrics={roleMetrics} />}
 
             {/* Alertas globales de retroalimentación */}
             <FeedbackAlert
@@ -107,7 +111,7 @@ export default function DashboardPage() {
             />
 
             {/* Renderizado estricto por rol */}
-            <div className="mt-8">
+            <div className={isOverview ? 'mt-8' : 'mt-2'}>
               {resolvedActiveTab === 'profile' && (
                 <UserProfileEditModule
                   key={profile.updated_at || profile.id}
