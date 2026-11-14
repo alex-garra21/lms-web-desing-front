@@ -7,6 +7,7 @@ import Input from '@/components/Input';
 import { maskRoute } from '@/app/utils/routeHasher';
 import { useDarkMode } from '@/app/hooks/useDarkMode';
 import { SunIcon, MoonIcon } from '@/app/utils/icons';
+import { DEMO_SESSION_KEY } from '@/app/utils/demoSession';
 
 /**
  * Vista de Inicio de Sesión (Login) para el LMS UMG.
@@ -63,18 +64,21 @@ export function Login({ onLoginSuccess, redirectPath = '/dashboard' }) {
           : 'student',
       };
 
+      window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(mockUser));
       setSuccessMessage('¡Autenticación exitosa! Redirigiendo a tu panel...');
 
       if (onLoginSuccess) {
         onLoginSuccess(mockUser);
       } else if (typeof window !== 'undefined') {
-        const targetUrl = maskRoute(redirectPath);
+        const roleRedirectPath =
+          mockUser.role === 'instructor' ? '/instructor/dashboard' : redirectPath;
+        const targetUrl = maskRoute(roleRedirectPath);
         setTimeout(() => {
           window.location.href = targetUrl;
         }, 600);
       }
     } catch {
-      setErrorMessage('Error al conectar con el servidor de autenticación de Supabase.');
+      setErrorMessage('No se pudo iniciar la sesión de demostración. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }

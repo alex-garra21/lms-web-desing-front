@@ -19,16 +19,17 @@ export const ROLE_NAV_LINKS = {
   ],
   student: [
     { label: 'Mi Panel', href: '/dashboard' },
-    { label: 'Mis Cursos', href: '/dashboard#my-courses' },
-    { label: 'Explorar', href: '/courses' },
-    { label: 'Avance', href: '/dashboard#progress' },
-    { label: 'Recursos', href: '/dashboard#resources' },
+    { label: 'Mis Cursos', href: '/dashboard/my-courses' },
+    { label: 'Explorar', href: '/dashboard/explore' },
+    { label: 'Avance', href: '/dashboard/progress' },
+    { label: 'Recursos', href: '/dashboard/resources' },
   ],
   instructor: [
     { label: 'Panel Docente', href: '/instructor/dashboard' },
-    { label: 'Mis Clases', href: '/instructor/classes/202' },
-    { label: 'Calificar', href: '/instructor/grading/202' },
-    { label: 'Materiales', href: '/instructor/resources' },
+    { label: 'Cursos', href: '/instructor/dashboard/courses' },
+    { label: 'Contenido', href: '/instructor/dashboard/content' },
+    { label: 'Evaluaciones', href: '/instructor/dashboard/assessments' },
+    { label: 'ESP / NFC', href: '/instructor/dashboard/iot' },
   ],
   secretary: [
     { label: 'Secretaría', href: '/secretariat/dashboard' },
@@ -99,7 +100,7 @@ export function Navbar({
       <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <Link
-            href={maskRoute(isAuthenticated ? '/dashboard' : '/')}
+            href={maskRoute(isAuthenticated ? (activeRole === 'instructor' ? '/instructor/dashboard' : '/dashboard') : '/')}
             className="flex items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-900/40">
@@ -119,7 +120,7 @@ export function Navbar({
 
           <nav className="hidden items-center gap-2 md:flex">
             {navLinks.map((link) => {
-              const isActive = currentPath === link.href;
+              const isActive = currentPath === link.href.split('#')[0];
               return (
                 <Link
                   key={link.href}
@@ -166,6 +167,9 @@ export function Navbar({
                 <button
                   type="button"
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  aria-expanded={userDropdownOpen}
+                  aria-haspopup="menu"
+                  aria-label="Abrir menú de usuario"
                   className="flex items-center gap-2.5 rounded-xl border border-sky-800 bg-[#0c1f34] p-1.5 pr-3 transition-colors hover:bg-[#112b45]"
                 >
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 font-bold text-xs text-white">
@@ -180,13 +184,14 @@ export function Navbar({
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl border border-sky-800 bg-[#0a1c2f] p-2 shadow-2xl z-50">
+                  <div role="menu" className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl border border-sky-800 bg-[#0a1c2f] p-2 shadow-2xl z-50">
                     <button
                       type="button"
                       onClick={() => {
                         setUserDropdownOpen(false);
-                        if (onLogout) onLogout();
+                        onLogout?.();
                       }}
+                      role="menuitem"
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-[#112b45] transition-colors"
                     >
                       Cerrar Sesión ({activeRole})
@@ -259,6 +264,18 @@ export function Navbar({
                 Comenzar
               </Button>
             </div>
+          )}
+          {isAuthenticated && onLogout && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onLogout();
+              }}
+              className="mt-2 w-full rounded-xl border border-rose-500/30 px-3 py-2 text-left text-sm font-semibold text-rose-300 hover:bg-rose-500/10"
+            >
+              Cerrar sesión
+            </button>
           )}
         </div>
       )}
