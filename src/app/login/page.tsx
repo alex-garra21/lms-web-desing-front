@@ -7,6 +7,7 @@ import Input from '@/components/Input';
 import { maskRoute } from '@/utils/routeHasher';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { SunIcon, MoonIcon } from '@/utils/icons';
+import { ShowPasswordIcon, HidePasswordIcon } from '@/utils/icons/showeyes';
 import { supabase } from '@/utils/supabaseClient';
 
 /**
@@ -22,6 +23,7 @@ import { supabase } from '@/utils/supabaseClient';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -204,7 +206,7 @@ export default function LoginPage() {
 
             <Input
               label="Contraseña"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               id="login-password"
               name="password"
               value={password}
@@ -215,6 +217,20 @@ export default function LoginPage() {
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
+              }
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? (
+                    <HidePasswordIcon className="w-5 h-5" />
+                  ) : (
+                    <ShowPasswordIcon className="w-5 h-5" />
+                  )}
+                </button>
               }
             />
 

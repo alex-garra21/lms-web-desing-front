@@ -7,6 +7,7 @@ import Input from '@/components/Input';
 import { maskRoute } from '@/utils/routeHasher';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { SunIcon, MoonIcon } from '@/utils/icons';
+import { ShowPasswordIcon, HidePasswordIcon } from '@/utils/icons/showeyes';
 
 /**
  * Vista de Registro de Nuevos Estudiantes para el LMS UMG (Campus Cobán).
@@ -29,6 +30,8 @@ function RegisterForm({ onRegisterSuccess }) {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -271,7 +274,7 @@ function RegisterForm({ onRegisterSuccess }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Contraseña"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 id="reg-password"
                 name="password"
                 value={formData.password}
@@ -279,17 +282,45 @@ function RegisterForm({ onRegisterSuccess }) {
                 placeholder="••••••••"
                 helperText="Mínimo 8 caracteres"
                 required
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none"
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? (
+                      <HidePasswordIcon className="w-5 h-5" />
+                    ) : (
+                      <ShowPasswordIcon className="w-5 h-5" />
+                    )}
+                  </button>
+                }
               />
 
               <Input
                 label="Confirmar Contraseña"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 id="reg-confirm-password"
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={(e) => handleChange('confirmPassword', e.target.value)}
                 placeholder="••••••••"
                 required
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none"
+                    aria-label={showConfirmPassword ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                  >
+                    {showConfirmPassword ? (
+                      <HidePasswordIcon className="w-5 h-5" />
+                    ) : (
+                      <ShowPasswordIcon className="w-5 h-5" />
+                    )}
+                  </button>
+                }
               />
             </div>
 

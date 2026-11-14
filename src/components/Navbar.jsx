@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Button from './Button';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { maskRoute } from '@/utils/routeHasher';
 import { SunIcon, MoonIcon } from '@/utils/icons';
+import { supabase } from '@/utils/supabaseClient';
+import { getRoleDisplayName } from '@/utils/roleHelper';
 
 /**
  * Enlaces y módulos para los 5 roles del LMS UMG (con IDs de ejemplo para probar maskRoute)
@@ -19,30 +22,58 @@ export const ROLE_NAV_LINKS = {
   ],
   student: [
     { label: 'Mi Panel', href: '/dashboard' },
-    { label: 'Mis Cursos', href: '/dashboard#my-courses' },
-    { label: 'Explorar', href: '/courses' },
-    { label: 'Avance', href: '/dashboard#progress' },
-    { label: 'Recursos', href: '/dashboard#resources' },
+    { label: 'Catálogo de Cursos', href: '/courses' },
+    { label: 'Mis Cursos', href: '/dashboard?tab=my-courses' },
+    { label: 'Tareas y Exámenes', href: '/dashboard?tab=tasks-exams' },
+    { label: 'Reseñas', href: '/dashboard?tab=reviews' },
   ],
   instructor: [
-    { label: 'Panel Docente', href: '/instructor/dashboard' },
-    { label: 'Mis Clases', href: '/instructor/classes/202' },
-    { label: 'Calificar', href: '/instructor/grading/202' },
-    { label: 'Materiales', href: '/instructor/resources' },
+    { label: 'Mi Panel', href: '/dashboard' },
+    { label: 'Mis Cursos Asignados', href: '/dashboard?tab=courses' },
+    { label: 'Tareas y Evaluaciones', href: '/dashboard?tab=evaluations' },
+  ],
+  system: [
+    { label: 'Panel de Administración', href: '/dashboard' },
+    { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
+    { label: 'Auditoría General', href: '/dashboard?tab=audit' },
+  ],
+  administration: [
+    { label: 'Panel de Administración', href: '/dashboard' },
+    { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
+    { label: 'Supervisión de Cursos', href: '/courses' },
   ],
   secretary: [
-    { label: 'Secretaría', href: '/secretariat/dashboard' },
-    { label: 'Inscripciones', href: '/secretariat/enrollments/303' },
-    { label: 'Constancias', href: '/secretariat/certificates' },
-    { label: 'Pagos', href: '/secretariat/payments' },
+    { label: 'Panel de Administración', href: '/dashboard' },
+    { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
+    { label: 'Supervisión de Cursos', href: '/courses' },
   ],
   admin: [
-    { label: 'Panel Admin', href: '/admin/dashboard' },
-    { label: 'Usuarios', href: '/admin/users/404' },
-    { label: 'Asignaciones', href: '/admin/assignments' },
-    { label: 'Auditoría', href: '/admin/security' },
+    { label: 'Panel de Administración', href: '/dashboard' },
+    { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
+    { label: 'Auditoría General', href: '/dashboard?tab=audit' },
   ],
 };
+
+const VALID_DB_ROLES = ['system', 'administration', 'instructor', 'student'];
+const LEGACY_ROLE_ALIASES = { admin: 'system', secretary: 'administration' };
+
+function normalizeRole(value) {
+  if (!value) return null;
+  const mapped = LEGACY_ROLE_ALIASES[value] || value;
+  return VALID_DB_ROLES.includes(mapped) ? mapped : null;
+}
+
+function notifyDashboardUrlChange() {
+  if (typeof window !== 'undefined') {
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('lms:urlchange'));
+    }, 0);
+  }
+}
 
 /**
  * @param {Object} props
@@ -61,14 +92,123 @@ export function Navbar({
   notificationsCount = 0,
   className = '',
 }) {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   const { isDark, toggleDarkMode, mounted } = useDarkMode();
 
-  const activeRole = user?.role || (user ? 'student' : role);
-  const rawLinks = ROLE_NAV_LINKS[activeRole] || ROLE_NAV_LINKS.public;
+  const [profile, setProfile] = useState(null);
+  const [hasSession, setHasSession] = useState(false);
+
+  const navigateToProfile = (e) => {
+    if (e) {
+      e.preventDefault();
+    }
+    setUserDropdownOpen(false);
+    setMobileMenuOpen(false);
+
+    const targetUrl = maskRoute('/dashboard?tab=profile');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', targetUrl);
+      window.dispatchEvent(new Event('lms:urlchange'));
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+    router.push(targetUrl);
+  };
+
+  const navigateToSecurity = (e) => {
+    if (e) {
+      e.preventDefault();
+    }
+    setUserDropdownOpen(false);
+    setMobileMenuOpen(false);
+
+    const targetUrl = maskRoute('/dashboard?tab=security');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', targetUrl);
+      window.dispatchEvent(new Event('lms:urlchange'));
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+    router.push(targetUrl);
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProfile = async (session) => {
+      if (!session?.user?.id) {
+        if (active) {
+          setHasSession(false);
+          setProfile(null);
+        }
+        return;
+      }
+      if (active) setHasSession(true);
+      const { data, error } = await supabase
+        .from('users')
+        .select('nombres, apellidos, avatar, rol')
+        .eq('id', session.user.id)
+        .eq('is_deleted', false)
+        .maybeSingle();
+      if (error) {
+        console.warn('Navbar: no se pudo leer el perfil en users:', error.message);
+      }
+      if (data) {
+        if (active) setProfile(data);
+        return;
+      }
+      const meta = session.user.user_metadata || {};
+      const metaRole = normalizeRole(meta.rol || meta.role);
+      const fallbackNombres =
+        meta.nombres || meta.full_name || session.user.email?.split('@')[0] || '';
+      const fallbackApellidos = meta.apellidos || '';
+      if (active) {
+        setProfile(
+          fallbackNombres || metaRole
+            ? {
+                nombres: fallbackNombres,
+                apellidos: fallbackApellidos,
+                avatar: meta.avatar || meta.avatar_url || null,
+                rol: metaRole,
+              }
+            : null
+        );
+      }
+    };
+
+    const refreshCurrentSession = () => {
+      supabase.auth.getSession().then(({ data }) => loadProfile(data?.session));
+    };
+
+    refreshCurrentSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Se difiere para no invocar Supabase dentro del propio callback de auth
+      setTimeout(() => loadProfile(session), 0);
+    });
+
+    window.addEventListener('lms:profile-updated', refreshCurrentSession);
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+      window.removeEventListener('lms:profile-updated', refreshCurrentSession);
+    };
+  }, []);
+
+  const displayName = profile
+    ? `${profile.nombres} ${profile.apellidos}`.trim()
+    : user?.name;
+  // El rol real proviene de users.rol; las props solo sirven de respaldo mientras carga.
+  const resolvedRole =
+    normalizeRole(profile?.rol) || normalizeRole(user?.role) || normalizeRole(role);
+  const isAuthenticated = hasSession || Boolean(resolvedRole);
+  const activeRole = resolvedRole || (isAuthenticated ? 'unknown' : 'public');
+  const rawLinks = isAuthenticated
+    ? ROLE_NAV_LINKS[resolvedRole] || [{ label: 'Mi Panel', href: '/dashboard' }]
+    : ROLE_NAV_LINKS.public;
 
   // Enmascaramiento obligatorio de rutas para prevenir IDOR
   const navLinks = rawLinks.map(link => ({
@@ -76,7 +216,16 @@ export function Navbar({
     href: maskRoute(link.href)
   }));
 
-  const isAuthenticated = activeRole !== 'public';
+  const avatarUrl = profile?.avatar || user?.avatar || null;
+
+  const handleLogout = async () => {
+    setUserDropdownOpen(false);
+    await supabase.auth.signOut();
+    setProfile(null);
+    setHasSession(false);
+    if (onLogout) onLogout();
+    else if (typeof window !== 'undefined') window.location.href = maskRoute('/login');
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -100,6 +249,7 @@ export function Navbar({
         <div className="flex items-center gap-8">
           <Link
             href={maskRoute(isAuthenticated ? '/dashboard' : '/')}
+            onClick={notifyDashboardUrlChange}
             className="flex items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-900/40">
@@ -124,6 +274,7 @@ export function Navbar({
                 <Link
                   key={link.href}
                   href={link.href}
+                  onClick={notifyDashboardUrlChange}
                   className={`
                     rounded-xl px-5 py-3 text-base font-semibold transition-all duration-200
                     ${isActive
@@ -169,27 +320,44 @@ export function Navbar({
                   className="flex items-center gap-2.5 rounded-xl border border-sky-800 bg-[#0c1f34] p-1.5 pr-3 transition-colors hover:bg-[#112b45]"
                 >
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 font-bold text-xs text-white">
-                    {(user?.name || activeRole).charAt(0).toUpperCase()}
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={displayName || getRoleDisplayName(activeRole)} className="h-9 w-9 rounded-lg object-cover" />
+                    ) : (
+                      (displayName || getRoleDisplayName(activeRole)).charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="hidden lg:flex flex-col text-left">
                     <span className="max-w-[100px] truncate text-xs font-bold text-white">
-                      {user?.name || `Usuario ${activeRole}`}
+                      {displayName || getRoleDisplayName(activeRole)}
                     </span>
-                    <span className="text-[10px] capitalize text-slate-300">{activeRole}</span>
+                    <span className="text-[10px] font-medium text-slate-300">
+                      {getRoleDisplayName(activeRole)}
+                    </span>
                   </div>
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl border border-sky-800 bg-[#0a1c2f] p-2 shadow-2xl z-50">
+                  <div className="absolute right-0 mt-2 w-52 origin-top-right rounded-2xl border border-sky-800 bg-[#0a1c2f] p-2 shadow-2xl z-50">
+                    <Link
+                      href={maskRoute('/dashboard?tab=profile')}
+                      onClick={navigateToProfile}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-[#112b45] transition-colors"
+                    >
+                      Editar Datos
+                    </Link>
+                    <Link
+                      href={maskRoute('/dashboard?tab=security')}
+                      onClick={navigateToSecurity}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-[#112b45] transition-colors"
+                    >
+                      Cambiar Contraseña
+                    </Link>
                     <button
                       type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        if (onLogout) onLogout();
-                      }}
+                      onClick={handleLogout}
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-[#112b45] transition-colors"
                     >
-                      Cerrar Sesión ({activeRole})
+                      Cerrar Sesión
                     </button>
                   </div>
                 )}
@@ -230,12 +398,33 @@ export function Navbar({
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  notifyDashboardUrlChange();
+                }}
                 className="rounded-xl px-3 py-2 text-sm font-medium text-slate-200 hover:bg-[#0d1d33]"
               >
                 {link.label}
               </Link>
             ))}
+            {isAuthenticated && (
+              <>
+                <Link
+                  href={maskRoute('/dashboard?tab=profile')}
+                  onClick={navigateToProfile}
+                  className="rounded-xl px-3 py-2 text-sm font-medium text-slate-200 hover:bg-[#0d1d33]"
+                >
+                  Editar Datos
+                </Link>
+                <Link
+                  href={maskRoute('/dashboard?tab=security')}
+                  onClick={navigateToSecurity}
+                  className="rounded-xl px-3 py-2 text-sm font-medium text-slate-200 hover:bg-[#0d1d33]"
+                >
+                  Cambiar Contraseña
+                </Link>
+              </>
+            )}
           </nav>
           {!isAuthenticated && (
             <div className="pt-2 flex flex-col gap-2">
