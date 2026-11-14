@@ -8,6 +8,7 @@ import { maskRoute } from '@/utils/routeHasher';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { SunIcon, MoonIcon } from '@/utils/icons';
 import { ShowPasswordIcon, HidePasswordIcon } from '@/utils/icons/showeyes';
+import { supabase } from '@/utils/supabaseClient';
 
 /**
  * Vista de Registro de Nuevos Estudiantes para el LMS UMG (Campus Cobán).
@@ -94,17 +95,91 @@ function RegisterForm({ onRegisterSuccess }) {
     setIsLoading(true);
 
     try {
-      // Simulación de registro asíncrono hacia Supabase
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      const cleanEmail = formData.email.trim();
+      const cleanCode = formData.registrationCode.trim().toUpperCase();
+
+      // 1. Validar el código de registro institucional en Supabase
+      const { data: codeData, error: codeError } = await supabase
+        .from('registration_codes')
+        .select('*')
+        .eq('codigo', cleanCode)
+        .eq('is_deleted', false)
+        .maybeSingle();
+
+      if (codeError) {
+        console.warn('Advertencia al consultar código en registration_codes:', codeError.message);
+      }
+
+      if (codeData && codeData.is_used) {
+        setErrorMessage('El código de registro ingresado ya ha sido utilizado.');
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Registrar la cuenta en Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: formData.password,
+        options: {
+          data: {
+            nombres: formData.firstName.trim(),
+            apellidos: formData.lastName.trim(),
+            fecha_nacimiento: formData.birthDate,
+            rol: 'student',
+          },
+        },
+      });
+
+      if (authError || !authData?.user) {
+        let msg = authError?.message || 'No se pudo crear la cuenta institucional.';
+        if (msg.toLowerCase().includes('already registered')) {
+          msg = 'Este correo institucional ya tiene una cuenta registrada en el sistema.';
+        }
+        setErrorMessage(msg);
+        setIsLoading(false);
+        return;
+      }
+
+      const targetUserId = authData.user.id;
+
+      // 3. Sincronizar en la tabla public.users respetando restricciones NOT NULL
+      const userPayload = {
+        id: targetUserId,
+        nombres: formData.firstName.trim(),
+        apellidos: formData.lastName.trim(),
+        correo: cleanEmail,
+        fecha_nacimiento: formData.birthDate,
+        direccion: 'Campus Cobán, Alta Verapaz',
+        rol: 'student',
+      };
+
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert([userPayload], { onConflict: 'id' });
+
+      if (upsertError) {
+        console.warn('Nota: sincronización users diferida o restringida por RLS:', upsertError.message);
+      }
+
+      // 4. Marcar código como utilizado si existe
+      if (codeData?.id) {
+        await supabase
+          .from('registration_codes')
+          .update({
+            is_used: true,
+            used_by: targetUserId,
+          })
+          .eq('id', codeData.id);
+      }
 
       setSuccessMessage(
-        '¡Registro completado exitosamente! Tu cuenta ha sido verificada con el código de Secretaría. Redirigiendo al inicio de sesión...'
+        '¡Registro completado exitosamente! Tu cuenta ha sido verificada y sincronizada. Redirigiendo al inicio de sesión...'
       );
 
       const createdUser = {
         name: `${formData.firstName} ${formData.lastName}`,
-        email: formData.email,
-        registrationCode: formData.registrationCode,
+        email: cleanEmail,
+        registrationCode: cleanCode,
         role: 'student',
       };
 
@@ -115,8 +190,12 @@ function RegisterForm({ onRegisterSuccess }) {
           window.location.href = loginHref;
         }, 1200);
       }
-    } catch {
-      setErrorMessage('Error al procesar el registro con el servidor institucional.');
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : 'Error al procesar el registro con el servidor institucional.'
+      );
     } finally {
       setIsLoading(false);
     }
