@@ -35,24 +35,28 @@ export const ROLE_NAV_LINKS = {
   system: [
     { label: 'Panel de Administración', href: '/dashboard' },
     { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Credenciales NFC', href: '/dashboard?tab=nfc' },
     { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
     { label: 'Auditoría General', href: '/dashboard?tab=audit' },
   ],
   administration: [
     { label: 'Panel de Administración', href: '/dashboard' },
     { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Credenciales NFC', href: '/dashboard?tab=nfc' },
     { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
     { label: 'Supervisión de Cursos', href: '/courses' },
   ],
   secretary: [
     { label: 'Panel de Administración', href: '/dashboard' },
     { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Credenciales NFC', href: '/dashboard?tab=nfc' },
     { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
     { label: 'Supervisión de Cursos', href: '/courses' },
   ],
   admin: [
     { label: 'Panel de Administración', href: '/dashboard' },
     { label: 'Gestión de Usuarios', href: '/dashboard?tab=users' },
+    { label: 'Credenciales NFC', href: '/dashboard?tab=nfc' },
     { label: 'Códigos de Registro', href: '/dashboard?tab=codes' },
     { label: 'Auditoría General', href: '/dashboard?tab=audit' },
   ],

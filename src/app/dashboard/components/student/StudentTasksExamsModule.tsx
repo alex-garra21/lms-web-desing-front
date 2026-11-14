@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabaseClient';
 import { Button, Input } from '@/components';
@@ -55,11 +55,101 @@ export function StudentTasksExamsModule({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Estado para examen y verificación NFC
+  // Estado para examen y verificación NFC en tiempo real
   const [activeExam, setActiveExam] = useState<ExamRecord | null>(null);
-  const [nfcTokenInput, setNfcTokenInput] = useState('');
   const [nfcVerifiedForExam, setNfcVerifiedForExam] = useState<Record<string, boolean>>({});
+  const [isWaitingNfc, setIsWaitingNfc] = useState(false);
+  const [isPollingReady, setIsPollingReady] = useState(false);
+  const [nfcVerifiedBanner, setNfcVerifiedBanner] = useState<string>('');
   const [answers, setAnswers] = useState<Record<string, number>>({});
+
+  const completeNfcVerification = useCallback(
+    (examId: string, customMessage?: string) => {
+      setNfcVerifiedForExam((prev) => ({ ...prev, [examId]: true }));
+      setIsWaitingNfc(false);
+      setIsPollingReady(false);
+      const msg = customMessage || '¡Asistencia NFC verificada con éxito!';
+      setNfcVerifiedBanner(msg);
+      onFeedback({
+        type: 'success',
+        message: msg,
+      });
+    },
+    [onFeedback]
+  );
+
+  // Suscripción Supabase Realtime + intervalo de sondeo (cada 2s) cuando está activo "Acercando al lector de laboratorio..."
+  useEffect(() => {
+    if (!isWaitingNfc || !isPollingReady || !activeExam) return;
+
+    const examId = activeExam.id;
+    let isCancelled = false;
+
+    // 1. Canal Supabase Realtime sobre la tabla exam_attendances para este estudiante y examen
+    const channel = supabase
+      .channel(`nfc-attendance-${currentUser.id}-${examId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'exam_attendances',
+          filter: `student_id=eq.${currentUser.id}`,
+        },
+        (payload) => {
+          if (isCancelled) return;
+          const newRow = payload.new as {
+            exam_id?: string;
+            nfc_verified?: boolean;
+            status?: string;
+          } | null;
+
+          if (
+            newRow &&
+            (!newRow.exam_id || newRow.exam_id === examId) &&
+            (newRow.nfc_verified === true || newRow.status === 'verified')
+          ) {
+            completeNfcVerification(examId, '¡Asistencia NFC verificada con éxito!');
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Intervalo de sondeo cada 2 segundos hacia GET /api/nfc/validar?student_id=...&exam_id=...
+    const pollInterval = setInterval(async () => {
+      if (isCancelled) return;
+      try {
+        const params = new URLSearchParams({
+          student_id: currentUser.id,
+          exam_id: examId,
+        });
+        const res = await fetch(`/api/nfc/validar?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (
+          !isCancelled &&
+          data?.ok &&
+          (data?.verified === true || data?.status === 'verified')
+        ) {
+          completeNfcVerification(examId, '¡Asistencia NFC verificada con éxito!');
+        }
+      } catch {
+        // Ignorar errores de red transitorios durante el sondeo
+      }
+    }, 2000);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [
+    isWaitingNfc,
+    isPollingReady,
+    activeExam,
+    currentUser.id,
+    completeNfcVerification,
+  ]);
 
   const activeAssignmentId =
     selectedAssignmentId !== null
@@ -157,31 +247,31 @@ export function StudentTasksExamsModule({
   };
 
   const handleVerifyNfc = async (exam: ExamRecord) => {
-    const cleanInput = nfcTokenInput.trim();
-    const expectedHash = currentUser.nfc_token_hash;
+    setActiveExam(exam);
+    setIsWaitingNfc(true);
+    setIsPollingReady(false);
+    setNfcVerifiedBanner('');
 
-    if (!cleanInput) {
-      onFeedback({
-        type: 'error',
-        message: 'Ingresa o escanea tu código/token NFC de carné universitario.',
-      });
-      return;
-    }
-
-    if (expectedHash && cleanInput !== expectedHash) {
-      onFeedback({
-        type: 'error',
-        message:
-          'El token NFC no coincide con la credencial vinculada a tu perfil institucional.',
-      });
-      return;
-    }
-
-    setNfcVerifiedForExam((prev) => ({ ...prev, [exam.id]: true }));
     onFeedback({
-      type: 'success',
-      message: 'Asistencia presencial NFC validada. Ya puedes resolver tu examen.',
+      type: 'info',
+      message: 'Acercando al lector de laboratorio...',
     });
+
+    try {
+      await fetch('/api/nfc/validar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'start_wait',
+          student_id: currentUser.id,
+          exam_id: exam.id,
+        }),
+      });
+    } catch {
+      // Continuar con el sondeo y escucha en tiempo real
+    } finally {
+      setIsPollingReady(true);
+    }
   };
 
   const handleSubmitExam = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -436,12 +526,26 @@ export function StudentTasksExamsModule({
                       <Button
                         variant="brand"
                         size="sm"
+                        disabled={
+                          isWaitingNfc && activeExam?.id === exam.id
+                        }
                         onClick={() => {
-                          setActiveExam(exam);
                           setAnswers({});
+                          if (isPresencial && !nfcVerifiedForExam[exam.id]) {
+                            void handleVerifyNfc(exam);
+                          } else {
+                            setActiveExam(exam);
+                            setIsWaitingNfc(false);
+                            setIsPollingReady(false);
+                            setNfcVerifiedBanner('');
+                          }
                         }}
                       >
-                        Resolver examen
+                        {isPresencial && !nfcVerifiedForExam[exam.id]
+                          ? isWaitingNfc && activeExam?.id === exam.id
+                            ? 'Acercando al lector de laboratorio...'
+                            : 'Validar Asistencia NFC'
+                          : 'Resolver examen'}
                       </Button>
                     </div>
                   )}
@@ -465,41 +569,91 @@ export function StudentTasksExamsModule({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setActiveExam(null)}
+                onClick={() => {
+                  setIsWaitingNfc(false);
+                  setIsPollingReady(false);
+                  setActiveExam(null);
+                }}
               >
                 Cancelar
               </Button>
             </div>
 
-            {activeExam.modalidad === 'presencial' &&
-            !nfcVerifiedForExam[activeExam.id] ? (
-              <div className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-surface p-5 dark:border-slate-800">
-                <h4 className="text-sm font-bold text-foreground">
-                  Verificación de Asistencia NFC Requerida
-                </h4>
+            {activeExam.modalidad === 'presencial' && (
+              <div
+                className={`mt-5 space-y-4 rounded-2xl border p-5 transition-colors ${
+                  nfcVerifiedForExam[activeExam.id]
+                    ? 'border-emerald-300 bg-emerald-50/70 dark:border-emerald-500/30 dark:bg-emerald-950/20'
+                    : 'border-slate-200 bg-surface dark:border-slate-800'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-sm font-bold text-foreground">
+                    Verificación de Asistencia NFC Presencial
+                  </h4>
+                  {nfcVerifiedForExam[activeExam.id] ? (
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
+                      ✓ ¡Asistencia NFC verificada con éxito!
+                    </span>
+                  ) : isWaitingNfc ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                      <span className="h-2 w-2 animate-ping rounded-full bg-amber-600" />
+                      Acercando al lector de laboratorio...
+                    </span>
+                  ) : null}
+                </div>
+
                 <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">
-                  Acerca tu carné universitario NFC al lector del laboratorio o ingresa el token NFC asignado a tu perfil ({currentUser.nfc_token_hash ? 'Credencial vinculada' : 'Validación de aula'}).
+                  Haz clic en <strong>Validar Asistencia NFC</strong> y acerca tu carné universitario al lector físico del laboratorio para desbloquear tu evaluación presencial en tiempo real.
                 </p>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <Input
-                    label="Token / UID Credencial NFC"
-                    value={nfcTokenInput}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setNfcTokenInput(e.target.value)
-                    }
-                    placeholder={
-                      currentUser.nfc_token_hash || 'NFC-UMG-COBAN-...'
-                    }
-                  />
+
+                <div className="flex flex-wrap items-center gap-3">
                   <Button
-                    variant="brand"
+                    type="button"
+                    variant={
+                      nfcVerifiedForExam[activeExam.id] ? 'secondary' : 'brand'
+                    }
+                    disabled={
+                      isWaitingNfc || Boolean(nfcVerifiedForExam[activeExam.id])
+                    }
                     onClick={() => handleVerifyNfc(activeExam)}
                   >
-                    Validar Asistencia NFC
+                    {nfcVerifiedForExam[activeExam.id]
+                      ? 'Validar Asistencia NFC'
+                      : isWaitingNfc
+                      ? 'Acercando al lector de laboratorio...'
+                      : 'Validar Asistencia NFC'}
                   </Button>
                 </div>
+
+                {isWaitingNfc && !nfcVerifiedForExam[activeExam.id] && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                    <span>
+                      Acercando al lector de laboratorio... (Escuchando lectura de la ESP32 cada 2s / Supabase Realtime)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsWaitingNfc(false);
+                        setIsPollingReady(false);
+                      }}
+                      className="font-bold underline hover:opacity-80 cursor-pointer"
+                    >
+                      Cancelar espera
+                    </button>
+                  </div>
+                )}
+
+                {nfcVerifiedForExam[activeExam.id] && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-100/70 px-4 py-3 text-xs font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
+                    {nfcVerifiedBanner || '¡Asistencia NFC verificada con éxito!'}
+                  </div>
+                )}
               </div>
-            ) : (
+            )}
+
+            {(activeExam.modalidad !== 'presencial' ||
+              Boolean(nfcVerifiedForExam[activeExam.id])) && (
               <form onSubmit={handleSubmitExam} className="mt-5 space-y-4">
                 {SAMPLE_QUESTIONS.map((q, index) => (
                   <div

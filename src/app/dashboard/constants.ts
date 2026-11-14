@@ -67,6 +67,11 @@ export const TABS_BY_ROLE: Record<UserRole, DashboardTab[]> = {
       description: 'Alta, edición y listado de colaboradores y estudiantes',
     },
     {
+      id: 'nfc',
+      label: 'Credenciales NFC',
+      description: 'Vinculación y edición de tarjetas físicas NFC para estudiantes',
+    },
+    {
       id: 'codes',
       label: 'Códigos de Registro e Inscripción',
       description: 'Generación y control de account_creation y course_enrollment',
@@ -85,6 +90,11 @@ export const TABS_BY_ROLE: Record<UserRole, DashboardTab[]> = {
       id: 'users',
       label: 'Gestión de Usuarios',
       description: 'Alta, edición y listado de colaboradores y estudiantes',
+    },
+    {
+      id: 'nfc',
+      label: 'Credenciales NFC',
+      description: 'Vinculación y edición de tarjetas físicas NFC para estudiantes',
     },
     {
       id: 'codes',

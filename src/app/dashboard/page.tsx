@@ -15,6 +15,7 @@ import {
   AdminUsersModule,
   RegistrationCodesModule,
   SystemAuditModule,
+  StudentNfcCredentialsModule,
 } from './components/admin/index';
 import {
   UserProfileEditModule,
@@ -148,6 +149,14 @@ export default function DashboardPage() {
                       onFeedback={setFeedback}
                     />
                   )}
+                  {resolvedActiveTab === 'nfc' && (
+                    <StudentNfcCredentialsModule
+                      currentUser={profile}
+                      users={usersList}
+                      onReloadUsers={() => loadAdminModulesData(profile.rol)}
+                      onFeedback={setFeedback}
+                    />
+                  )}
                   {resolvedActiveTab === 'codes' && (
                     <RegistrationCodesModule
                       currentUser={profile}
@@ -211,6 +220,10 @@ export default function DashboardPage() {
                       enrollments={studentEnrollments}
                       modules={modulesList}
                       contents={contentsList}
+                      assignments={assignmentsList}
+                      exams={examsList}
+                      assignmentSubmissions={assignmentSubmissions}
+                      examSubmissions={examSubmissions}
                       selectedCourseId={selectedCourseId}
                       selectedModuleId={selectedModuleId}
                       onSelectCourse={setSelectedCourseId}

@@ -355,14 +355,32 @@ export function useDashboardData() {
       return;
     }
 
-    const { data: modsData } = await supabase
+    // Consulta relacional extendida: módulos con contenidos, tareas (assignments) y exámenes (exams)
+    const { data: modsRelData, error: modsRelError } = await supabase
       .from('modules')
-      .select('*')
+      .select('*, contents(*), assignments(*), exams(*)')
       .in('course_id', courseIds)
       .eq('is_deleted', false)
       .order('orden', { ascending: true });
 
-    const mods = (modsData || []) as ModuleRecord[];
+    let mods: ModuleRecord[] = [];
+    if (!modsRelError && modsRelData) {
+      mods = (modsRelData as ModuleRecord[]).map((mod) => ({
+        ...mod,
+        contents: (mod.contents || []).filter((c) => !c.is_deleted),
+        assignments: (mod.assignments || []).filter((a) => !a.is_deleted),
+        exams: (mod.exams || []).filter((ex) => !ex.is_deleted),
+      }));
+    } else {
+      const { data: modsFallback } = await supabase
+        .from('modules')
+        .select('*')
+        .in('course_id', courseIds)
+        .eq('is_deleted', false)
+        .order('orden', { ascending: true });
+      mods = (modsFallback || []) as ModuleRecord[];
+    }
+
     setModulesList(mods);
 
     const modIds = mods.map((m) => m.id);
@@ -408,9 +426,25 @@ export function useDashboardData() {
         .eq('student_id', studentId),
     ]);
 
-    setContentsList((contentsRes.data || []) as ContentRecord[]);
-    setAssignmentsList((assignmentsRes.data || []) as AssignmentRecord[]);
-    setExamsList((examsRes.data || []) as ExamRecord[]);
+    const nestedContents = mods.flatMap((m) => m.contents || []);
+    const nestedAssignments = mods.flatMap((m) => m.assignments || []);
+    const nestedExams = mods.flatMap((m) => m.exams || []);
+
+    setContentsList(
+      ((contentsRes.data && contentsRes.data.length > 0
+        ? contentsRes.data
+        : nestedContents) || []) as ContentRecord[]
+    );
+    setAssignmentsList(
+      ((assignmentsRes.data && assignmentsRes.data.length > 0
+        ? assignmentsRes.data
+        : nestedAssignments) || []) as AssignmentRecord[]
+    );
+    setExamsList(
+      ((examsRes.data && examsRes.data.length > 0
+        ? examsRes.data
+        : nestedExams) || []) as ExamRecord[]
+    );
     setAssignmentSubmissions(
       (assignSubRes.data || []) as AssignmentSubmissionRecord[]
     );

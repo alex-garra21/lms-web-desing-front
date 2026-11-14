@@ -72,6 +72,9 @@ export interface ModuleRecord {
   orden: number;
   is_deleted: boolean;
   created_at: string;
+  contents?: ContentRecord[];
+  assignments?: AssignmentRecord[];
+  exams?: ExamRecord[];
 }
 
 export interface ContentRecord {

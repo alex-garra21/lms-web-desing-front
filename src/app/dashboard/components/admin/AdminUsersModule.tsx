@@ -8,6 +8,8 @@ import { getRoleDisplayName, ROLE_MAPPING, normalizeUserRole } from '@/utils/rol
 import { recordAuditLog } from '../../utils';
 import { createAdminUserAction } from '../../actions/createAdminUserAction';
 import { updateAdminUserAction } from '../../actions/updateUser';
+import { updateStudentNfcAction } from '../../actions/updateStudentNfcAction';
+import { StudentNfcCredentialsModule } from './StudentNfcCredentialsModule';
 import type { UserProfile, StatusFeedback, UserRole } from '../../types';
 
 export interface AdminUsersModuleProps {
@@ -29,10 +31,16 @@ export function AdminUsersModule({
     ? users.find((item) => item.id === focusedUserId) || null
     : null;
 
+  const [adminSubView, setAdminSubView] = useState<'general' | 'nfc'>('general');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Estado para modal rápido de vinculación NFC desde la tabla de usuarios
+  const [nfcModalStudent, setNfcModalStudent] = useState<UserProfile | null>(null);
+  const [nfcModalInput, setNfcModalInput] = useState('');
+  const [isSavingNfcModal, setIsSavingNfcModal] = useState(false);
 
   const [formState, setFormState] = useState(() => ({
     nombres: initialFocusedUser?.nombres || '',
@@ -240,6 +248,74 @@ export function AdminUsersModule({
     }
   };
 
+  const handleQuickSaveStudentNfc = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!nfcModalStudent) return;
+
+    const cleanUid = nfcModalInput.trim();
+    if (!cleanUid) {
+      onFeedback({
+        type: 'error',
+        message: 'Ingresa o escanea el UID de la tarjeta física (ej. 04:A3:2B:81).',
+      });
+      return;
+    }
+
+    setIsSavingNfcModal(true);
+    try {
+      const previousToken = nfcModalStudent.nfc_token_hash || null;
+      const res = await updateStudentNfcAction({
+        studentId: nfcModalStudent.id,
+        nfcTokenHash: cleanUid,
+      });
+
+      if (!res.success) {
+        const { error: fallbackErr } = await supabase
+          .from('users')
+          .update({
+            nfc_token_hash: cleanUid,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', nfcModalStudent.id)
+          .eq('rol', 'student');
+
+        if (fallbackErr) {
+          throw new Error(res.message || fallbackErr.message);
+        }
+      }
+
+      await recordAuditLog({
+        tabla_afectada: 'users',
+        registro_id: nfcModalStudent.id,
+        operacion: 'UPDATE',
+        usuario_id: currentUser.id,
+        datos_anteriores: { nfc_token_hash: previousToken },
+        datos_nuevos: { nfc_token_hash: cleanUid },
+      });
+
+      onFeedback({
+        type: 'success',
+        message:
+          res.message ||
+          `Tarjeta NFC (${cleanUid}) vinculada a ${nfcModalStudent.nombres} ${nfcModalStudent.apellidos}.`,
+      });
+
+      setNfcModalStudent(null);
+      setNfcModalInput('');
+      await onReloadUsers();
+    } catch (err: unknown) {
+      onFeedback({
+        type: 'error',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'No se pudo actualizar el token NFC del estudiante.',
+      });
+    } finally {
+      setIsSavingNfcModal(false);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return users.filter((user) => {
@@ -248,13 +324,60 @@ export function AdminUsersModule({
         !query ||
         `${user.nombres} ${user.apellidos}`.toLowerCase().includes(query) ||
         user.correo.toLowerCase().includes(query) ||
-        (user.codigo_empleado || '').toLowerCase().includes(query);
+        (user.codigo_empleado || '').toLowerCase().includes(query) ||
+        (user.nfc_token_hash || '').toLowerCase().includes(query);
       return matchesRole && matchesText;
     });
   }, [users, searchTerm, roleFilter]);
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[400px_minmax(0,1fr)]">
+    <div className="space-y-6">
+      {/* Selector de vista dentro de Gestión de Usuarios: Directorio General vs. Vinculación NFC de Estudiantes */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-surface p-3.5 shadow-xs dark:border-slate-800">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-brand">
+            Módulo Administrativo de Usuarios y Credenciales
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Administra cuentas institucionales o gestiona la vinculación de tarjetas físicas NFC para estudiantes (`student`).
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAdminSubView('general')}
+            className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors cursor-pointer ${
+              adminSubView === 'general'
+                ? 'bg-brand text-white shadow-xs'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+            }`}
+          >
+            Directorio General ({users.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSubView('nfc')}
+            className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors cursor-pointer ${
+              adminSubView === 'nfc'
+                ? 'bg-brand text-white shadow-xs'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+            }`}
+          >
+            Credenciales NFC Estudiantes (
+            {users.filter((u) => u.rol === 'student' && !u.is_deleted).length})
+          </button>
+        </div>
+      </div>
+
+      {adminSubView === 'nfc' ? (
+        <StudentNfcCredentialsModule
+          currentUser={currentUser}
+          users={users}
+          onReloadUsers={onReloadUsers}
+          onFeedback={onFeedback}
+        />
+      ) : (
+        <div className="grid gap-8 xl:grid-cols-[400px_minmax(0,1fr)]">
       <section className="rounded-[26px] border border-slate-200 bg-surface p-6 shadow-sm dark:border-slate-800">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -491,15 +614,33 @@ export function AdminUsersModule({
                       </td>
                       <td className="px-4 py-3.5 text-xs">
                         {user.nfc_token_hash ? (
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                            Vinculado
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                              Vinculado
+                            </span>
+                            <code className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                              {user.nfc_token_hash}
+                            </code>
+                          </div>
                         ) : (
                           <span className="text-slate-400">Sin asignar</span>
                         )}
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex flex-wrap justify-end gap-2">
+                          {user.rol === 'student' && (
+                            <Button
+                              type="button"
+                              variant={user.nfc_token_hash ? 'secondary' : 'brand'}
+                              size="sm"
+                              onClick={() => {
+                                setNfcModalStudent(user);
+                                setNfcModalInput(user.nfc_token_hash || '');
+                              }}
+                            >
+                              {user.nfc_token_hash ? 'Editar NFC' : 'Vincular Tarjeta'}
+                            </Button>
+                          )}
                           <Button
                             href={userDetailHref}
                             variant="secondary"
@@ -526,6 +667,85 @@ export function AdminUsersModule({
           </table>
         </div>
       </section>
+        </div>
+      )}
+
+      {/* Modal rápido de Asociación NFC desde la tabla de Gestión de Usuarios */}
+      {nfcModalStudent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-[24px] border border-slate-200 bg-surface p-6 shadow-2xl dark:border-slate-800">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-brand">
+                  {nfcModalStudent.nfc_token_hash
+                    ? 'Editar Credencial NFC'
+                    : 'Vincular Tarjeta NFC'}
+                </p>
+                <h3 className="mt-1 text-xl font-black text-foreground">
+                  {nfcModalStudent.nombres} {nfcModalStudent.apellidos}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {nfcModalStudent.correo}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSavingNfcModal) {
+                    setNfcModalStudent(null);
+                    setNfcModalInput('');
+                  }
+                }}
+                className="rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickSaveStudentNfc} className="mt-5 space-y-4">
+              <Input
+                label="UID / Token de la Tarjeta Física NFC"
+                value={nfcModalInput}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setNfcModalInput(e.target.value)
+                }
+                placeholder="Ej. 04:A3:2B:81"
+                helperText="Se guardará en public.users.nfc_token_hash"
+                autoFocus
+                required
+              />
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isSavingNfcModal}
+                  onClick={() => {
+                    setNfcModalStudent(null);
+                    setNfcModalInput('');
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="brand"
+                  size="sm"
+                  isLoading={isSavingNfcModal}
+                >
+                  Guardar Token NFC
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

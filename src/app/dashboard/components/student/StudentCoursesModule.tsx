@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabaseClient';
 import { Button, Input } from '@/components';
@@ -8,16 +8,21 @@ import CourseCard from '@/components/CourseCard';
 import VideoPlayer from '@/components/VideoPlayer';
 import { maskRoute, createMaskedUrl, encodeId } from '@/utils/routeHasher';
 import { extractResourceLinks } from '../../utils';
+import { VirtualClassroomActivities } from './VirtualClassroomActivities';
 import type {
   UserProfile,
   EnrollmentRecord,
   ModuleRecord,
   ContentRecord,
+  AssignmentRecord,
+  ExamRecord,
+  AssignmentSubmissionRecord,
+  ExamSubmissionRecord,
   StatusFeedback,
 } from '../../types';
 
 // =====================================================================
-// Módulo 6 (student): Mis Cursos, Progreso y Acceso a Lecciones
+// Módulo 6 (student): Mis Cursos, Aula Virtual y Progreso Integral
 // =====================================================================
 
 export interface StudentCoursesModuleProps {
@@ -25,6 +30,10 @@ export interface StudentCoursesModuleProps {
   enrollments: EnrollmentRecord[];
   modules: ModuleRecord[];
   contents: ContentRecord[];
+  assignments?: AssignmentRecord[];
+  exams?: ExamRecord[];
+  assignmentSubmissions?: AssignmentSubmissionRecord[];
+  examSubmissions?: ExamSubmissionRecord[];
   selectedCourseId: string;
   selectedModuleId: string;
   onSelectCourse: (courseId: string) => void;
@@ -38,6 +47,10 @@ export function StudentCoursesModule({
   enrollments,
   modules,
   contents,
+  assignments = [],
+  exams = [],
+  assignmentSubmissions = [],
+  examSubmissions = [],
   selectedCourseId,
   selectedModuleId,
   onSelectCourse,
@@ -49,11 +62,97 @@ export function StudentCoursesModule({
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [activeContentId, setActiveContentId] = useState<string>('');
   const [completedContentIds, setCompletedContentIds] = useState<string[]>([]);
+  const [focusedTaskInAula, setFocusedTaskInAula] = useState<string>('');
+  const [focusedExamInAula, setFocusedExamInAula] = useState<string>('');
 
   const activeEnrollment = useMemo(
-    () => enrollments.find((e) => e.course_id === selectedCourseId) || enrollments[0] || null,
+    () =>
+      enrollments.find((e) => e.course_id === selectedCourseId) ||
+      enrollments[0] ||
+      null,
     [enrollments, selectedCourseId]
   );
+
+  // Persistencia local de lecciones marcadas como completadas por estudiante
+  const storageKey = `lms_completed_contents_${currentUser.id}`;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setCompletedContentIds(parsed);
+      }
+    } catch {
+      // Ignorar errores de lectura de localStorage
+    }
+  }, [storageKey]);
+
+  const saveCompletedLessons = useCallback(
+    (ids: string[]) => {
+      setCompletedContentIds(ids);
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(ids));
+        } catch {
+          // Ignorar errores de escritura
+        }
+      }
+    },
+    [storageKey]
+  );
+
+  // Unificar colecciones relacionales (directas + anidadas en modules)
+  const allContents = useMemo(() => {
+    const map = new Map<string, ContentRecord>();
+    modules.forEach((m) =>
+      (m.contents || []).forEach((c) => {
+        if (!c.is_deleted) map.set(c.id, c);
+      })
+    );
+    contents.forEach((c) => {
+      if (!c.is_deleted) map.set(c.id, c);
+    });
+    return Array.from(map.values());
+  }, [modules, contents]);
+
+  const allAssignments = useMemo(() => {
+    const map = new Map<string, AssignmentRecord>();
+    modules.forEach((m) =>
+      (m.assignments || []).forEach((a) => {
+        if (!a.is_deleted) map.set(a.id, a);
+      })
+    );
+    assignments.forEach((a) => {
+      if (!a.is_deleted) map.set(a.id, a);
+    });
+    return Array.from(map.values());
+  }, [modules, assignments]);
+
+  const allExams = useMemo(() => {
+    const map = new Map<string, ExamRecord>();
+    modules.forEach((m) =>
+      (m.exams || []).forEach((ex) => {
+        if (!ex.is_deleted) map.set(ex.id, ex);
+      })
+    );
+    exams.forEach((ex) => {
+      if (!ex.is_deleted) map.set(ex.id, ex);
+    });
+    return Array.from(map.values());
+  }, [modules, exams]);
+
+  const submissionByAssignment = useMemo(() => {
+    const map = new Map<string, AssignmentSubmissionRecord>();
+    assignmentSubmissions.forEach((s) => map.set(s.assignment_id, s));
+    return map;
+  }, [assignmentSubmissions]);
+
+  const submissionByExam = useMemo(() => {
+    const map = new Map<string, ExamSubmissionRecord>();
+    examSubmissions.forEach((s) => map.set(s.exam_id, s));
+    return map;
+  }, [examSubmissions]);
 
   const courseModules = useMemo(() => {
     if (!activeEnrollment) return [];
@@ -62,10 +161,15 @@ export function StudentCoursesModule({
       .sort((a, b) => a.orden - b.orden);
   }, [modules, activeEnrollment]);
 
+  const courseModuleIdSet = useMemo(
+    () => new Set(courseModules.map((m) => m.id)),
+    [courseModules]
+  );
+
   const courseContents = useMemo(() => {
     const moduleOrderMap = new Map<string, number>();
     courseModules.forEach((m) => moduleOrderMap.set(m.id, m.orden));
-    return contents
+    return allContents
       .filter((c) => moduleOrderMap.has(c.module_id))
       .sort((a, b) => {
         const modDiff =
@@ -73,7 +177,17 @@ export function StudentCoursesModule({
           (moduleOrderMap.get(b.module_id) ?? 0);
         return modDiff !== 0 ? modDiff : a.orden - b.orden;
       });
-  }, [contents, courseModules]);
+  }, [allContents, courseModules]);
+
+  const courseAssignments = useMemo(
+    () => allAssignments.filter((a) => courseModuleIdSet.has(a.module_id)),
+    [allAssignments, courseModuleIdSet]
+  );
+
+  const courseExams = useMemo(
+    () => allExams.filter((ex) => courseModuleIdSet.has(ex.module_id)),
+    [allExams, courseModuleIdSet]
+  );
 
   const visibleModuleContents = useMemo(() => {
     if (!selectedModuleId) return courseContents;
@@ -91,10 +205,113 @@ export function StudentCoursesModule({
 
   const activeModule = useMemo(
     () =>
+      courseModules.find((m) => m.id === selectedModuleId) ||
       courseModules.find((m) => m.id === activeContent?.module_id) ||
       courseModules[0] ||
       null,
-    [courseModules, activeContent]
+    [courseModules, selectedModuleId, activeContent]
+  );
+
+  // Cálculo integral de progreso por curso (lecciones completadas + tareas entregadas + exámenes aprobados)
+  const computeCourseMetrics = useCallback(
+    (
+      targetCourseId: string,
+      overrideLessonIds?: string[],
+      extraAssignmentId?: string,
+      extraExamSubmission?: { examId: string; score: number }
+    ) => {
+      const lessonIdsSet = new Set(overrideLessonIds ?? completedContentIds);
+      const cMods = modules.filter((m) => m.course_id === targetCourseId);
+      const cModIds = new Set(cMods.map((m) => m.id));
+
+      const cLessons = allContents.filter((c) => cModIds.has(c.module_id));
+      const cTasks = allAssignments.filter((a) => cModIds.has(a.module_id));
+      const cExams = allExams.filter((ex) => cModIds.has(ex.module_id));
+
+      const completedLessonsCount = cLessons.filter((c) =>
+        lessonIdsSet.has(c.id)
+      ).length;
+
+      const submittedTasksCount = cTasks.filter(
+        (a) =>
+          submissionByAssignment.has(a.id) || a.id === extraAssignmentId
+      ).length;
+
+      const passedExamsCount = cExams.filter((ex) => {
+        const maxScore = Number(ex.punteo_maximo) || 100;
+        if (extraExamSubmission && extraExamSubmission.examId === ex.id) {
+          return extraExamSubmission.score >= maxScore * 0.6;
+        }
+        const sub = submissionByExam.get(ex.id);
+        return sub !== undefined && Number(sub.calificacion_automatica) >= maxScore * 0.6;
+      }).length;
+
+      const totalItems = cLessons.length + cTasks.length + cExams.length;
+      const completedItems =
+        completedLessonsCount + submittedTasksCount + passedExamsCount;
+
+      const enrollmentRow = enrollments.find(
+        (e) => e.course_id === targetCourseId
+      );
+      const fallbackPct = enrollmentRow?.progreso_porcentaje ?? 0;
+
+      const percentage =
+        totalItems > 0
+          ? Math.min(100, Math.round((completedItems / totalItems) * 100))
+          : fallbackPct;
+
+      return {
+        percentage,
+        completedLessonsCount,
+        totalLessonsCount: cLessons.length,
+        submittedTasksCount,
+        totalTasksCount: cTasks.length,
+        passedExamsCount,
+        totalExamsCount: cExams.length,
+        totalItems,
+        completedItems,
+      };
+    },
+    [
+      completedContentIds,
+      modules,
+      allContents,
+      allAssignments,
+      allExams,
+      submissionByAssignment,
+      submissionByExam,
+      enrollments,
+    ]
+  );
+
+  const activeProgressSummary = useMemo(
+    () =>
+      activeEnrollment
+        ? computeCourseMetrics(activeEnrollment.course_id)
+        : null,
+    [activeEnrollment, computeCourseMetrics]
+  );
+
+  const syncIntegralProgressToDb = useCallback(
+    async (
+      enrollment: EnrollmentRecord,
+      overrideLessonIds?: string[],
+      extraAssignmentId?: string,
+      extraExamSubmission?: { examId: string; score: number }
+    ) => {
+      const metrics = computeCourseMetrics(
+        enrollment.course_id,
+        overrideLessonIds,
+        extraAssignmentId,
+        extraExamSubmission
+      );
+      await supabase
+        .from('enrollments')
+        .update({ progreso_porcentaje: metrics.percentage })
+        .eq('id', enrollment.id);
+      return metrics;
+    },
+    [computeCourseMetrics]
   );
 
   const handleRedeemCode = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -170,45 +387,31 @@ export function StudentCoursesModule({
       updatedSet.delete(activeContent.id);
     }
     const nextArray = Array.from(updatedSet);
-    setCompletedContentIds(nextArray);
+    saveCompletedLessons(nextArray);
 
-    const totalLessons = Math.max(courseContents.length, 1);
-    const completedInCourse = courseContents.filter((c) =>
-      updatedSet.has(c.id)
-    ).length;
-    const computedProgress = Math.min(
-      100,
-      Math.max(
-        nextCompleted ? Math.round((completedInCourse / totalLessons) * 100) : 0,
-        nextCompleted ? activeEnrollment.progreso_porcentaje : 0
-      )
-    );
-    const finalProgress =
-      completedInCourse > 0
-        ? Math.round((completedInCourse / totalLessons) * 100)
-        : nextCompleted
-        ? 100
-        : computedProgress;
-
-    const { error } = await supabase
-      .from('enrollments')
-      .update({ progreso_porcentaje: finalProgress })
-      .eq('id', activeEnrollment.id);
-
-    if (error) {
-      onFeedback({
-        type: 'error',
-        message: `No se pudo actualizar tu progreso: ${error.message}`,
-      });
-      return;
-    }
+    const metrics = await syncIntegralProgressToDb(activeEnrollment, nextArray);
 
     onFeedback({
       type: 'success',
-      message: `Progreso actualizado al ${finalProgress}% en ${
+      message: `Progreso integral actualizado al ${metrics.percentage}% en ${
         activeEnrollment.courses?.titulo || 'tu curso'
       }.`,
     });
+    await onReloadStudentData();
+  };
+
+  const handleActivityCompleted = async (opts?: {
+    newSubmittedAssignmentId?: string;
+    newExamSubmission?: { examId: string; score: number };
+  }) => {
+    if (activeEnrollment) {
+      await syncIntegralProgressToDb(
+        activeEnrollment,
+        undefined,
+        opts?.newSubmittedAssignmentId,
+        opts?.newExamSubmission
+      );
+    }
     await onReloadStudentData();
   };
 
@@ -267,11 +470,9 @@ export function StudentCoursesModule({
             {enrollments.map((enrollment) => {
               const course = enrollment.courses;
               const courseId = enrollment.course_id;
+              const metrics = computeCourseMetrics(courseId);
               const courseModulesCount = modules.filter(
                 (m) => m.course_id === courseId
-              ).length;
-              const courseLessonsCount = contents.filter((c) =>
-                modules.some((m) => m.course_id === courseId && m.id === c.module_id)
               ).length;
 
               return (
@@ -286,8 +487,8 @@ export function StudentCoursesModule({
                       thumbnail: course?.thumbnail || null,
                       category: 'Campus Cobán',
                       level: `${courseModulesCount} módulos`,
-                      duration: `Nota: ${enrollment.calificacion_final ?? 0}`,
-                      lessonsCount: courseLessonsCount,
+                      duration: `Avance: ${metrics.percentage}%`,
+                      lessonsCount: metrics.totalLessonsCount,
                       rating: 5.0,
                       reviewsCount: 0,
                       instructor: {
@@ -296,7 +497,7 @@ export function StudentCoursesModule({
                         title: course?.codigo_asignacion || 'Curso Activo',
                       },
                     }}
-                    progress={enrollment.progreso_porcentaje}
+                    progress={metrics.percentage}
                     isEnrolled
                     actionText="Ver detalles del curso"
                     actionHref={createMaskedUrl('/courses', courseId)}
@@ -317,7 +518,7 @@ export function StudentCoursesModule({
                   >
                     {activeEnrollment?.course_id === courseId
                       ? 'Aula abierta abajo'
-                      : 'Abrir lecciones en panel'}
+                      : 'Abrir lecciones y actividades en panel'}
                   </Button>
                 </div>
               );
@@ -326,13 +527,13 @@ export function StudentCoursesModule({
         )}
       </section>
 
-      {/* Visor de Módulos y Lecciones del Curso Seleccionado */}
-      {activeEnrollment && (
+      {/* Visor de Módulos, Lecciones, Tareas y Exámenes del Curso Seleccionado */}
+      {activeEnrollment && activeProgressSummary && (
         <section className="rounded-[26px] border border-slate-200 bg-surface p-6 shadow-sm dark:border-slate-800">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand">
-                Aula virtual · Progreso {activeEnrollment.progreso_porcentaje}%
+                Aula virtual · Progreso integral {activeProgressSummary.percentage}%
               </p>
               <h3 className="mt-1 text-2xl font-black text-foreground">
                 {activeEnrollment.courses?.titulo || 'Contenido del curso'}
@@ -347,7 +548,41 @@ export function StudentCoursesModule({
             </Button>
           </div>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+          {/* Barra de Progreso Integral (Lecciones + Tareas + Exámenes) */}
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-bold text-foreground">
+                Avance integral del curso ({activeProgressSummary.completedItems} de{' '}
+                {activeProgressSummary.totalItems} actividades completadas)
+              </span>
+              <span className="text-sm font-black text-brand">
+                {activeProgressSummary.percentage}%
+              </span>
+            </div>
+            <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400 transition-all duration-300"
+                style={{ width: `${activeProgressSummary.percentage}%` }}
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">
+                Lecciones completadas: {activeProgressSummary.completedLessonsCount} /{' '}
+                {activeProgressSummary.totalLessonsCount}
+              </span>
+              <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300">
+                Tareas entregadas: {activeProgressSummary.submittedTasksCount} /{' '}
+                {activeProgressSummary.totalTasksCount}
+              </span>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                Exámenes aprobados: {activeProgressSummary.passedExamsCount} /{' '}
+                {activeProgressSummary.totalExamsCount}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 xl:grid-cols-[350px_minmax(0,1fr)]">
+            {/* Barra lateral de navegación de módulos con lecciones, tareas y exámenes */}
             <aside className="space-y-4">
               {courseModules.length === 0 ? (
                 <p className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
@@ -358,12 +593,33 @@ export function StudentCoursesModule({
                   const modContents = courseContents.filter(
                     (c) => c.module_id === mod.id
                   );
+                  const modAssignments = courseAssignments.filter(
+                    (a) => a.module_id === mod.id
+                  );
+                  const modExams = courseExams.filter(
+                    (ex) => ex.module_id === mod.id
+                  );
+
+                  const pendingTasksInMod = modAssignments.filter(
+                    (a) => !submissionByAssignment.has(a.id)
+                  ).length;
+                  const pendingExamsInMod = modExams.filter((ex) => {
+                    const sub = submissionByExam.get(ex.id);
+                    const maxScore = Number(ex.punteo_maximo) || 100;
+                    return !sub || Number(sub.calificacion_automatica) < maxScore * 0.6;
+                  }).length;
+                  const totalPendingInMod = pendingTasksInMod + pendingExamsInMod;
+
                   return (
                     <div
                       key={mod.id}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60"
+                      className={`rounded-2xl border p-4 transition-colors ${
+                        activeModule?.id === mod.id
+                          ? 'border-brand/60 bg-blue-50/30 dark:border-brand/50 dark:bg-slate-800/80'
+                          : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60'
+                      }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2">
                         <Link
                           href={maskRoute(
                             `/dashboard?tab=my-courses&course=${encodeId(
@@ -375,16 +631,33 @@ export function StudentCoursesModule({
                         >
                           Módulo {mod.orden}: {mod.titulo}
                         </Link>
+                        {totalPendingInMod > 0 ? (
+                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                            {totalPendingInMod} pend.
+                          </span>
+                        ) : modAssignments.length + modExams.length > 0 ? (
+                          <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
+                            Al día
+                          </span>
+                        ) : null}
                       </div>
+
+                      {/* Lecciones del módulo */}
                       <div className="mt-3 space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Lecciones ({modContents.length})
+                        </p>
                         {modContents.map((lesson) => {
                           const isCurrent = activeContent?.id === lesson.id;
                           return (
                             <button
                               key={lesson.id}
                               type="button"
-                              onClick={() => setActiveContentId(lesson.id)}
-                              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                              onClick={() => {
+                                onSelectModule(mod.id);
+                                setActiveContentId(lesson.id);
+                              }}
+                              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors cursor-pointer ${
                                 isCurrent
                                   ? 'bg-brand text-white'
                                   : 'bg-surface text-foreground hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
@@ -400,12 +673,101 @@ export function StudentCoursesModule({
                           );
                         })}
                       </div>
+
+                      {/* Tareas del módulo en la barra lateral */}
+                      {modAssignments.length > 0 && (
+                        <div className="mt-3 space-y-1.5 border-t border-slate-200/80 pt-2.5 dark:border-slate-700/70">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Tareas ({modAssignments.length})
+                          </p>
+                          {modAssignments.map((task) => {
+                            const submitted = submissionByAssignment.has(task.id);
+                            return (
+                              <button
+                                key={task.id}
+                                type="button"
+                                onClick={() => {
+                                  onSelectModule(mod.id);
+                                  setFocusedTaskInAula(task.id);
+                                  const el = document.getElementById(
+                                    `aula-task-${task.id}`
+                                  );
+                                  el?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                                className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-surface px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:border-brand dark:border-slate-700 cursor-pointer"
+                              >
+                                <span className="truncate">{task.titulo}</span>
+                                <span
+                                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                    submitted
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                                  }`}
+                                >
+                                  {submitted ? '✓ Entregada' : 'Pendiente'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Evaluaciones / Exámenes del módulo en la barra lateral */}
+                      {modExams.length > 0 && (
+                        <div className="mt-3 space-y-1.5 border-t border-slate-200/80 pt-2.5 dark:border-slate-700/70">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Evaluaciones ({modExams.length})
+                          </p>
+                          {modExams.map((exam) => {
+                            const sub = submissionByExam.get(exam.id);
+                            const maxScore = Number(exam.punteo_maximo) || 100;
+                            const approved =
+                              sub !== undefined &&
+                              Number(sub.calificacion_automatica) >= maxScore * 0.6;
+                            return (
+                              <button
+                                key={exam.id}
+                                type="button"
+                                onClick={() => {
+                                  onSelectModule(mod.id);
+                                  setFocusedExamInAula(exam.id);
+                                  const el = document.getElementById(
+                                    `aula-exam-${exam.id}`
+                                  );
+                                  el?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                                className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-surface px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:border-brand dark:border-slate-700 cursor-pointer"
+                              >
+                                <span className="truncate">
+                                  {exam.titulo} ({exam.tipo})
+                                </span>
+                                <span
+                                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                    approved
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                      : sub
+                                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                                  }`}
+                                >
+                                  {approved
+                                    ? '✓ Aprobado'
+                                    : sub
+                                    ? `${sub.calificacion_automatica} pts`
+                                    : 'Pendiente'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })
               )}
             </aside>
 
+            {/* Vista principal de la lección + Tareas y Exámenes del módulo */}
             <div className="space-y-4">
               {activeContent ? (
                 <>
@@ -463,6 +825,23 @@ export function StudentCoursesModule({
                   Selecciona una lección para iniciar la reproducción y registrar tu avance.
                 </div>
               )}
+
+              {/* Apartados interactivos de Tareas (assignments) y Exámenes (exams) */}
+              <VirtualClassroomActivities
+                currentUser={currentUser}
+                activeModule={activeModule}
+                courseModules={courseModules}
+                courseAssignments={courseAssignments}
+                courseExams={courseExams}
+                submissionByAssignment={submissionByAssignment}
+                submissionByExam={submissionByExam}
+                focusedAssignmentId={focusedTaskInAula}
+                focusedExamId={focusedExamInAula}
+                onSelectAssignment={setFocusedTaskInAula}
+                onSelectExam={setFocusedExamInAula}
+                onActivityCompleted={handleActivityCompleted}
+                onFeedback={onFeedback}
+              />
             </div>
           </div>
         </section>
