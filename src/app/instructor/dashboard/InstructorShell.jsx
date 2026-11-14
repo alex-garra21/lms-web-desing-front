@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { DEMO_SESSION_KEY } from '@/app/utils/demoSession';
-import { maskRoute } from '@/app/utils/routeHasher';
+import { DEMO_SESSION_KEY } from '@/utils/demoSession';
+import { maskRoute } from '@/utils/routeHasher';
 
 export default function InstructorShell({ children }) {
   const router = useRouter();

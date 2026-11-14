@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Button from '@/components/Button';
 import StudentShell from '../StudentShell';
 import { catalogCourses } from '../studentData';
-import { maskRoute } from '@/app/utils/routeHasher';
+import { maskRoute } from '@/utils/routeHasher';
 
 const categories = ['Todas', ...new Set(catalogCourses.map((course) => course.category))];
 
