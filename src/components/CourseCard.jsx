@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Button from './Button';
-import { createMaskedUrl } from '@/app/utils/routeHasher';
+import { createMaskedUrl } from '@/utils/routeHasher';
 
 /**
  * @typedef {Object} CourseCardProps

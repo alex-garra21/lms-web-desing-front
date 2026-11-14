@@ -1,134 +1,27 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Button from '@/components/Button';
 import CourseCard from '@/components/CourseCard';
-import { maskRoute } from '@/app/utils/routeHasher';
+import { maskRoute } from '@/utils/routeHasher';
 import CustomSelect from '@/components/CustomSelect';
+import { fetchPublicCourses } from '@/utils/publicCourses';
 
-const catalogCourses = [
-  {
-    id: 101,
-    title: 'Desarrollo de Software Seguro y Arquitectura Web',
-    description:
-      'Aprende a diseñar aplicaciones escalables con seguridad, autenticación y buenas prácticas de software moderno.',
-    thumbnail:
-      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
-    category: 'Ingeniería de Sistemas',
-    level: 'Avanzado',
-    duration: '24 horas',
-    lessonsCount: 36,
-    rating: 4.9,
-    reviewsCount: 128,
-    format: 'Virtual',
-    instructor: {
-      name: 'Ing. Carlos Mendoza',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      title: 'Catedrático UMG',
-    },
-  },
-  {
-    id: 202,
-    title: 'Estructuras de Datos y Algoritmos Avanzados',
-    description:
-      'Domina estructuras, grafos y análisis algorítmico para resolver problemas reales y desarrollar lógica computacional.',
-    thumbnail:
-      'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=800&q=80',
-    category: 'Ciencias de la Computación',
-    level: 'Intermedio',
-    duration: '18 horas',
-    lessonsCount: 24,
-    rating: 4.8,
-    reviewsCount: 94,
-    format: 'Mixto',
-    instructor: {
-      name: 'Dra. Sofía Morales',
-      avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80',
-      title: 'Investigadora UMG',
-    },
-  },
-  {
-    id: 303,
-    title: 'Bases de Datos Relacionales y PostgreSQL en la Nube',
-    description:
-      'Modelado, normalización, consultas avanzadas y seguridad con Row Level Security para aplicaciones profesionales.',
-    thumbnail:
-      'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=800&q=80',
-    category: 'Bases de Datos',
-    level: 'Principiante',
-    duration: '15 horas',
-    lessonsCount: 20,
-    rating: 4.7,
-    reviewsCount: 76,
-    format: 'Presencial',
-    instructor: {
-      name: 'Ing. Alejandro Ramos',
-      avatar: null,
-      title: 'Especialista en Datos',
-    },
-  },
-  {
-    id: 404,
-    title: 'Diseño UX/UI para Productos Digitales',
-    description:
-      'Diseña experiencias centradas en el usuario con prototipos, investigación y evaluación de interfaces.',
-    thumbnail:
-      'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80',
-    category: 'Diseño',
-    level: 'Intermedio',
-    duration: '12 horas',
-    lessonsCount: 18,
-    rating: 4.9,
-    reviewsCount: 110,
-    format: 'Virtual',
-    instructor: {
-      name: 'MSc. Valeria López',
-      avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=200&q=80',
-      title: 'Diseñadora Senior',
-    },
-  },
-  {
-    id: 505,
-    title: 'Fundamentos de IA y Machine Learning Aplicado',
-    description:
-      'Explora los fundamentos de la inteligencia artificial y aplica modelos prácticos con casos reales de negocio.',
-    thumbnail:
-      'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80',
-    category: 'Inteligencia Artificial',
-    level: 'Avanzado',
-    duration: '30 horas',
-    lessonsCount: 42,
-    rating: 5.0,
-    reviewsCount: 150,
-    format: 'Virtual',
-    instructor: {
-      name: 'Dr. Esteban García',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-      title: 'Profesor de IA',
-    },
-  },
-  {
-    id: 606,
-    title: 'Marketing Digital y Estrategia de Contenido',
-    description:
-      'Construye campañas, entiende métricas y crea contenido que convierta con enfoque multidisciplinario.',
-    thumbnail:
-      'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=800&q=80',
-    category: 'Negocios',
-    level: 'Principiante',
-    duration: '10 horas',
-    lessonsCount: 14,
-    rating: 4.6,
-    reviewsCount: 63,
-    format: 'Mixto',
-    instructor: {
-      name: 'Lic. Adriana Silva',
-      avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80',
-      title: 'Especialista en Marketing',
-    },
-  },
-];
+type PublicCourse = {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string | null;
+  category?: string;
+  categories: string[];
+  level?: string;
+  format?: string;
+  lessonsCount?: number;
+  rating: number;
+  reviewsCount: number;
+  instructor: { name: string; avatar: string | null; title: string };
+};
 
 const categories = ['Todos', 'Ingeniería de Sistemas', 'Ciencias de la Computación', 'Bases de Datos', 'Diseño', 'Inteligencia Artificial', 'Negocios'];
 const levels = ['Todos', 'Principiante', 'Intermedio', 'Avanzado'];
@@ -140,11 +33,39 @@ export default function CoursesPage() {
   const [selectedLevel, setSelectedLevel] = useState('Todos');
   const [selectedFormat, setSelectedFormat] = useState('Todos');
   const [sortBy, setSortBy] = useState('popular');
+  const [courses, setCourses] = useState<PublicCourse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchPublicCourses(controller.signal)
+      .then((data: PublicCourse[]) => {
+        setCourses(data);
+        setErrorMessage('');
+        setIsLoading(false);
+      })
+      .catch((error: Error) => {
+        if (error.name === 'AbortError') return;
+        setErrorMessage(error.message || 'No se pudieron cargar los cursos.');
+        setIsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [reloadKey]);
+
+  const retryLoad = () => {
+    setIsLoading(true);
+    setErrorMessage('');
+    setReloadKey((key) => key + 1);
+  };
 
   const filteredCourses = useMemo(() => {
     const text = searchTerm.trim().toLowerCase();
 
-    return [...catalogCourses]
+    return [...courses]
       .filter((course) => {
         const matchesText =
           !text ||
@@ -153,7 +74,7 @@ export default function CoursesPage() {
           course.instructor.name.toLowerCase().includes(text);
 
         const matchesCategory =
-          selectedCategory === 'Todos' || course.category === selectedCategory;
+          selectedCategory === 'Todos' || course.categories.includes(selectedCategory);
 
         const matchesLevel =
           selectedLevel === 'Todos' || course.level === selectedLevel;
@@ -165,11 +86,11 @@ export default function CoursesPage() {
       })
       .sort((a, b) => {
         if (sortBy === 'popular') return b.rating - a.rating;
-        if (sortBy === 'newest') return b.lessonsCount - a.lessonsCount;
+        if (sortBy === 'newest') return (b.lessonsCount ?? 0) - (a.lessonsCount ?? 0);
         if (sortBy === 'reviewed') return b.reviewsCount - a.reviewsCount;
         return a.title.localeCompare(b.title, 'es');
       });
-  }, [searchTerm, selectedCategory, selectedLevel, selectedFormat, sortBy]);
+  }, [courses, searchTerm, selectedCategory, selectedLevel, selectedFormat, sortBy]);
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -282,30 +203,27 @@ export default function CoursesPage() {
           </aside>
 
           <section className="space-y-5">
-            <div className="rounded-[26px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative z-40 rounded-[26px] border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                     Mostrando <span className="font-bold text-slate-900 dark:text-white">{filteredCourses.length}</span> cursos
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative z-40 flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-3 rounded-[20px] border border-sky-800 bg-[#08182e] px-4 py-3 text-sm shadow-inner shadow-sky-950/40">
                     <span className="font-semibold text-slate-200">Ordenar por</span>
-                    <div className="relative">
-                      <CustomSelect 
-                            options={[
-                              { value: 'popular', label: 'Mejor calificados' },
-                              { value: 'reviewed', label: 'Más reseñas' },
-                              { value: 'newest', label: 'Más lecciones' },
-                              { value: 'title', label: 'Nombre: A-Z' },
-                            ]}
-                            value={sortBy}
-                            onChange={(newValue: React.SetStateAction<string>) => setSortBy(newValue)}
-                          />
-                      <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-slate-200">▾</span>
-                    </div>
+                    <CustomSelect 
+                      options={[
+                        { value: 'popular', label: 'Mejor calificados' },
+                        { value: 'reviewed', label: 'Más reseñas' },
+                        { value: 'newest', label: 'Más lecciones' },
+                        { value: 'title', label: 'Nombre: A-Z' },
+                      ]}
+                      value={sortBy}
+                      onChange={(newValue: React.SetStateAction<string>) => setSortBy(newValue)}
+                    />
                   </div>
 
                   <Button
@@ -320,7 +238,21 @@ export default function CoursesPage() {
               </div>
             </div>
 
-            {filteredCourses.length > 0 ? (
+            {isLoading ? (
+              <div className="rounded-[26px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Cargando cursos...</p>
+              </div>
+            ) : errorMessage ? (
+              <div className="rounded-[26px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <h3 className="text-xl font-bold">No se pudieron cargar los cursos</h3>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{errorMessage}</p>
+                <div className="mt-5">
+                  <Button onClick={retryLoad} variant="secondary">
+                    Reintentar
+                  </Button>
+                </div>
+              </div>
+            ) : filteredCourses.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
                 {filteredCourses.map((course) => (
                   <CourseCard

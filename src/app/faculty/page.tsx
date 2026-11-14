@@ -3,7 +3,7 @@
 import React from 'react';
 import Navbar from '@/components/Navbar';
 import Button from '@/components/Button';
-import { maskRoute } from '@/app/utils/routeHasher';
+import { maskRoute } from '@/utils/routeHasher';
 
 const facultyMembers = [
   {
